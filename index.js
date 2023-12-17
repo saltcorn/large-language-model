@@ -30,7 +30,20 @@ const configuration_workflow = () =>
                 required: true,
                 showIf: { backend: "OpenAI" },
               },
-
+              {
+                name: "llama_dir",
+                label: "llama.cpp directory",
+                type: "String",
+                required: true,
+                showIf: { backend: "Local llama.cpp" },
+              },
+              {
+                name: "model_path",
+                label: "Model path",
+                type: "String",
+                required: true,
+                showIf: { backend: "Local llama.cpp" },
+              },
               {
                 name: "model",
                 label: "Model", //gpt-3.5-turbo

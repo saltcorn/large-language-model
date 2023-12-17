@@ -1,4 +1,6 @@
 const axios = require("axios");
+const util = require("util");
+const exec = util.promisify(require("child_process").exec);
 
 const getCompletion = async (config, opts) => {
   switch (config.backend) {
@@ -21,6 +23,18 @@ const getCompletion = async (config, opts) => {
 
         opts
       );
+    case "Local llama.cpp":
+      let hyperStr = "";
+      if (opts.temperature) hyperStr += ` --temp ${opts.temperature}`;
+      let nstr = "";
+      if (opts.ntokens) nstr = `-n ${opts.ntokens}`;
+      console.log("running llama with prompt: ", opts.prompt);
+
+      const { stdout, stderr } = await exec(
+        `./main -m ${config.model_path} -p "${opts.prompt}" ${nstr}${hyperStr}`,
+        { cwd: config.llama_dir }
+      );
+      return stdout;
     default:
       break;
   }
