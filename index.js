@@ -74,7 +74,7 @@ const configuration_workflow = () =>
   });
 const functions = (config) => ({
   llm_generate: {
-    run: async (prompt, { opts }) => {
+    run: async (prompt, opts) => {
       return await getCompletion(config, { prompt, ...opts });
     },
     isAsync: true,

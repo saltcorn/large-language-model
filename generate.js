@@ -9,7 +9,6 @@ const getCompletion = async (config, opts) => {
           bearer: config.api_key,
           model: config.model,
         },
-        config,
         opts
       );
     case "OpenAI-compatible API":
@@ -19,7 +18,7 @@ const getCompletion = async (config, opts) => {
           bearer: config.bearer,
           model: config.model,
         },
-        config,
+
         opts
       );
     default:
@@ -31,11 +30,12 @@ const getCompletionOpenAICompatible = async (
   { chatCompleteEndpoint, bearer, model },
   { systemPrompt, prompt, temperature }
 ) => {
+  const headers = {
+    "Content-Type": "application/json",
+  };
+  if (bearer) headers.Authorization = "Bearer " + bearer;
   const client = axios.create({
-    headers: {
-      "Content-Type": "application/json",
-      ...(bearer ? { Authorization: "Bearer " + bearer } : {}),
-    },
+    headers,
   });
   const params = {
     //prompt: "How are you?",
@@ -51,8 +51,7 @@ const getCompletionOpenAICompatible = async (
   };
 
   const results = await client.post(chatCompleteEndpoint, params);
-
-  return results;
+  return results?.data?.choices?.[0]?.message?.content;
 };
 
 module.exports = { getCompletion };
