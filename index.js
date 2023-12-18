@@ -1,12 +1,15 @@
 const Workflow = require("@saltcorn/data/models/workflow");
 const Form = require("@saltcorn/data/models/form");
 const { getCompletion } = require("./generate");
+const db = require("@saltcorn/data/db");
+
 const configuration_workflow = () =>
   new Workflow({
     steps: [
       {
         name: "API key",
         form: async (context) => {
+          const isRoot = db.getTenantSchema() === db.connectObj.default_schema;
           return new Form({
             fields: [
               {
@@ -18,7 +21,7 @@ const configuration_workflow = () =>
                   options: [
                     "OpenAI",
                     "OpenAI-compatible API",
-                    "Local llama.cpp",
+                    ...(isRoot ? ["Local llama.cpp"] : []),
                   ],
                 },
               },

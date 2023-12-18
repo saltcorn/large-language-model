@@ -1,6 +1,7 @@
 const axios = require("axios");
 const util = require("util");
 const exec = util.promisify(require("child_process").exec);
+const db = require("@saltcorn/data/db");
 
 const getCompletion = async (config, opts) => {
   switch (config.backend) {
@@ -24,6 +25,11 @@ const getCompletion = async (config, opts) => {
         opts
       );
     case "Local llama.cpp":
+      const isRoot = db.getTenantSchema() === db.connectObj.default_schema;
+      if (!isRoot)
+        throw new Error(
+          "llama.cpp inference is not permitted on subdomain tenants"
+        );
       let hyperStr = "";
       if (opts.temperature) hyperStr += ` --temp ${opts.temperature}`;
       let nstr = "";
