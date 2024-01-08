@@ -21,10 +21,10 @@ const getCompletion = async (config, opts) => {
           bearer: config.bearer,
           model: config.model,
         },
-
         opts
       );
     case "Local llama.cpp":
+      //TODO only check if unsafe plugins not allowed
       const isRoot = db.getTenantSchema() === db.connectObj.default_schema;
       if (!isRoot)
         throw new Error(

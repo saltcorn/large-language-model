@@ -98,8 +98,10 @@ const functions = (config) => ({
     arguments: [{ name: "prompt", type: "String" }],
   },
 });
+
 module.exports = {
   sc_plugin_api_version: 1,
   configuration_workflow,
   functions,
+  modelpatterns: require("./model.js"),
 };
