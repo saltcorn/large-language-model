@@ -1,4 +1,4 @@
-const axios = require("axios");
+const fetch = require("node-fetch");
 const util = require("util");
 const exec = util.promisify(require("child_process").exec);
 const db = require("@saltcorn/data/db");
@@ -52,12 +52,10 @@ const getCompletionOpenAICompatible = async (
 ) => {
   const headers = {
     "Content-Type": "application/json",
+    Accept: "application/json",
   };
   if (bearer) headers.Authorization = "Bearer " + bearer;
-  const client = axios.create({
-    headers,
-  });
-  const params = {
+  const body = {
     //prompt: "How are you?",
     model,
     messages: [
@@ -69,9 +67,15 @@ const getCompletionOpenAICompatible = async (
     ],
     temperature: temperature || 0.7,
   };
+  const rawResponse = await fetch(chatCompleteEndpoint, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(body),
+  });
+  const results = await rawResponse.json();
+  console.log(results);
 
-  const results = await client.post(chatCompleteEndpoint, params);
-  return results?.data?.choices?.[0]?.message?.content;
+  return results?.choices?.[0]?.message?.content;
 };
 
 module.exports = { getCompletion };
