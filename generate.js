@@ -6,10 +6,28 @@ const { Ollama } = require("ollama");
 
 const getEmbedding = async (config, opts) => {
   switch (config.backend) {
+    case "OpenAI":
+      return await getEmbeddingOpenAICompatible(
+        {
+          embeddingsEndpoint: "https://api.openai.com/v1/embeddings",
+          bearer: config.api_key,
+          embed_model: config.embed_model,
+        },
+        opts
+      );
+    case "OpenAI-compatible API":
+      return await getEmbeddingOpenAICompatible(
+        {
+          embeddingsEndpoint: config.embed_endpoint,
+          bearer: config.api_key,
+          embed_model: config.model,
+        },
+        opts
+      );
     case "Local Ollama":
       const ollama = new Ollama();
       const olres = await ollama.embeddings({
-        model: config.model,
+        model: opts?.model || config.model,
         prompt: opts.prompt,
       });
       //console.log("embedding response ", olres);
@@ -102,4 +120,27 @@ const getCompletionOpenAICompatible = async (
   return results?.choices?.[0]?.message?.content;
 };
 
+const getEmbeddingOpenAICompatible = async (config, { prompt, model }) => {
+  const { embeddingsEndpoint, bearer, embed_model } = config;
+  const headers = {
+    "Content-Type": "application/json",
+    Accept: "application/json",
+  };
+  if (bearer) headers.Authorization = "Bearer " + bearer;
+  const body = {
+    //prompt: "How are you?",
+    model: model || embed_model || "text-embedding-3-small",
+    input: prompt,
+  };
+  console.log({ body, config });
+  const rawResponse = await fetch(embeddingsEndpoint, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(body),
+  });
+  const results = await rawResponse.json();
+  console.log(results);
+
+  return results?.data?.[0]?.embedding;
+};
 module.exports = { getCompletion, getEmbedding };

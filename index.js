@@ -64,6 +64,20 @@ const configuration_workflow = () =>
                 },
               },
               {
+                name: "embed_model",
+                label: "Embedding model", //gpt-3.5-turbo
+                type: "String",
+                required: true,
+                showIf: { backend: "OpenAI" },
+                attributes: {
+                  options: [
+                    "text-embedding-3-small",
+                    "text-embedding-3-large",
+                    "text-embedding-ada-002",
+                  ],
+                },
+              },
+              {
                 name: "bearer_auth",
                 label: "Bearer Auth",
                 sublabel: "HTTP Header authorization with bearer token",
@@ -81,6 +95,13 @@ const configuration_workflow = () =>
                 label: "Chat completions endpoint",
                 type: "String",
                 sublabel: "Example: http://localhost:8080/v1/chat/completions",
+                showIf: { backend: "OpenAI-compatible API" },
+              },
+              {
+                name: "embed_endpoint",
+                label: "Embedding endpoint",
+                type: "String",
+                sublabel: "Example: http://localhost:8080/v1/embeddings",
                 showIf: { backend: "OpenAI-compatible API" },
               },
             ],
