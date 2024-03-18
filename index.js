@@ -21,6 +21,7 @@ const configuration_workflow = () =>
                   options: [
                     "OpenAI",
                     "OpenAI-compatible API",
+                    "Local Ollama",
                     ...(isRoot ? ["Local llama.cpp"] : []),
                   ],
                 },
@@ -73,7 +74,7 @@ const configuration_workflow = () =>
                 name: "model",
                 label: "Model",
                 type: "String",
-                showIf: { backend: "OpenAI-compatible API" },
+                showIf: { backend: ["OpenAI-compatible API", "Local Ollama"] },
               },
               {
                 name: "endpoint",

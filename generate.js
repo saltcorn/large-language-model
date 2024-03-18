@@ -2,6 +2,7 @@ const fetch = require("node-fetch");
 const util = require("util");
 const exec = util.promisify(require("child_process").exec);
 const db = require("@saltcorn/data/db");
+const { Ollama } = require("ollama");
 
 const getCompletion = async (config, opts) => {
   switch (config.backend) {
@@ -23,6 +24,14 @@ const getCompletion = async (config, opts) => {
         },
         opts
       );
+    case "Local Ollama":
+      const ollama = new Ollama();
+      const olres = await ollama.generate({
+        model: config.model,
+        prompt: opts.prompt,
+      });
+      //console.log("the response ", olres);
+      return olres.response;
     case "Local llama.cpp":
       //TODO only check if unsafe plugins not allowed
       const isRoot = db.getTenantSchema() === db.connectObj.default_schema;
