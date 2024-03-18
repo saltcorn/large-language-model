@@ -4,6 +4,21 @@ const exec = util.promisify(require("child_process").exec);
 const db = require("@saltcorn/data/db");
 const { Ollama } = require("ollama");
 
+const getEmbedding = async (config, opts) => {
+  switch (config.backend) {
+    case "Local Ollama":
+      const ollama = new Ollama();
+      const olres = await ollama.embeddings({
+        model: config.model,
+        prompt: opts.prompt,
+      });
+      //console.log("embedding response ", olres);
+      return olres.embedding;
+    default:
+      throw new Error("Not implemented for this backend");
+  }
+};
+
 const getCompletion = async (config, opts) => {
   switch (config.backend) {
     case "OpenAI":
@@ -87,4 +102,4 @@ const getCompletionOpenAICompatible = async (
   return results?.choices?.[0]?.message?.content;
 };
 
-module.exports = { getCompletion };
+module.exports = { getCompletion, getEmbedding };

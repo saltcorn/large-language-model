@@ -1,6 +1,6 @@
 const Workflow = require("@saltcorn/data/models/workflow");
 const Form = require("@saltcorn/data/models/form");
-const { getCompletion } = require("./generate");
+const { getCompletion, getEmbedding } = require("./generate");
 const db = require("@saltcorn/data/db");
 
 const configuration_workflow = () =>
@@ -96,6 +96,14 @@ const functions = (config) => ({
     },
     isAsync: true,
     description: "Generate text with GPT",
+    arguments: [{ name: "prompt", type: "String" }],
+  },
+  llm_embedding: {
+    run: async (prompt, opts) => {
+      return await getEmbedding(config, { prompt, ...opts });
+    },
+    isAsync: true,
+    description: "Get vector embedding",
     arguments: [{ name: "prompt", type: "String" }],
   },
 });
