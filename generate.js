@@ -2,7 +2,10 @@ const fetch = require("node-fetch");
 const util = require("util");
 const exec = util.promisify(require("child_process").exec);
 const db = require("@saltcorn/data/db");
-const { Ollama } = require("ollama");
+
+const { features, getState } = require("@saltcorn/data/db/state");
+let ollamaMod;
+if (features.esm_plugins) ollamaMod = require("ollama");
 
 const getEmbedding = async (config, opts) => {
   switch (config.backend) {
@@ -25,6 +28,9 @@ const getEmbedding = async (config, opts) => {
         opts
       );
     case "Local Ollama":
+      if (!ollamaMod) throw new Error("Not implemented for this backend");
+
+      const { Ollama } = ollamaMod;
       const ollama = new Ollama();
       const olres = await ollama.embeddings({
         model: opts?.model || config.model,
@@ -58,6 +64,10 @@ const getCompletion = async (config, opts) => {
         opts
       );
     case "Local Ollama":
+      if (!ollamaMod) throw new Error("Not implemented for this backend");
+
+      const { Ollama } = ollamaMod;
+
       const ollama = new Ollama();
       const olres = await ollama.generate({
         model: config.model,
