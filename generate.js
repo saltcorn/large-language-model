@@ -86,7 +86,7 @@ const getCompletion = async (config, opts) => {
       if (opts.temperature) hyperStr += ` --temp ${opts.temperature}`;
       let nstr = "";
       if (opts.ntokens) nstr = `-n ${opts.ntokens}`;
-      console.log("running llama with prompt: ", opts.prompt);
+      //console.log("running llama with prompt: ", opts.prompt);
 
       const { stdout, stderr } = await exec(
         `./main -m ${config.model_path} -p "${opts.prompt}" ${nstr}${hyperStr}`,
@@ -100,7 +100,7 @@ const getCompletion = async (config, opts) => {
 
 const getCompletionOpenAICompatible = async (
   { chatCompleteEndpoint, bearer, model },
-  { systemPrompt, prompt, temperature }
+  { systemPrompt, prompt, temperature, chat = [] }
 ) => {
   const headers = {
     "Content-Type": "application/json",
@@ -115,6 +115,7 @@ const getCompletionOpenAICompatible = async (
         role: "system",
         content: systemPrompt || "You are a helpful assistant.",
       },
+      ...chat,
       { role: "user", content: prompt },
     ],
     temperature: temperature || 0.7,
@@ -125,7 +126,6 @@ const getCompletionOpenAICompatible = async (
     body: JSON.stringify(body),
   });
   const results = await rawResponse.json();
-  console.log(results);
 
   return results?.choices?.[0]?.message?.content;
 };
@@ -142,14 +142,13 @@ const getEmbeddingOpenAICompatible = async (config, { prompt, model }) => {
     model: model || embed_model || "text-embedding-3-small",
     input: prompt,
   };
-  console.log({ body, config });
+
   const rawResponse = await fetch(embeddingsEndpoint, {
     method: "POST",
     headers,
     body: JSON.stringify(body),
   });
   const results = await rawResponse.json();
-  console.log(results);
 
   return results?.data?.[0]?.embedding;
 };
