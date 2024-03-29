@@ -100,7 +100,7 @@ const getCompletion = async (config, opts) => {
 
 const getCompletionOpenAICompatible = async (
   { chatCompleteEndpoint, bearer, model },
-  { systemPrompt, prompt, temperature, chat = [] }
+  { systemPrompt, prompt, temperature, chat = [], ...rest }
 ) => {
   const headers = {
     "Content-Type": "application/json",
@@ -119,6 +119,7 @@ const getCompletionOpenAICompatible = async (
       { role: "user", content: prompt },
     ],
     temperature: temperature || 0.7,
+    ...rest,
   };
   const rawResponse = await fetch(chatCompleteEndpoint, {
     method: "POST",
