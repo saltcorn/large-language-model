@@ -127,8 +127,14 @@ const getCompletionOpenAICompatible = async (
     body: JSON.stringify(body),
   });
   const results = await rawResponse.json();
+  //console.log(JSON.stringify(results, null, 2));
 
-  return results?.choices?.[0]?.message?.content;
+  return (
+    results?.choices?.[0]?.message?.content ||
+    (results?.choices?.[0]?.message?.tool_calls
+      ? { tool_calls: results?.choices?.[0]?.message?.tool_calls }
+      : null)
+  );
 };
 
 const getEmbeddingOpenAICompatible = async (config, { prompt, model }) => {
