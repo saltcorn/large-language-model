@@ -129,6 +129,7 @@ const getCompletionOpenAICompatible = async (
   const results = await rawResponse.json();
   if (debugResult)
     console.log("OpenAI response", JSON.stringify(results, null, 2));
+  if (results.error) throw new Error(`OpenAI error: ${results.error.message}`);
 
   return (
     results?.choices?.[0]?.message?.content ||
@@ -139,7 +140,7 @@ const getCompletionOpenAICompatible = async (
 };
 
 const getEmbeddingOpenAICompatible = async (config, { prompt, model }) => {
-  const { embeddingsEndpoint, bearer, embed_model } = config;
+  const { embeddingsEndpoint, bearer, debugResult, embed_model } = config;
   const headers = {
     "Content-Type": "application/json",
     Accept: "application/json",
@@ -157,7 +158,9 @@ const getEmbeddingOpenAICompatible = async (config, { prompt, model }) => {
     body: JSON.stringify(body),
   });
   const results = await rawResponse.json();
-
+  if (debugResult)
+    console.log("OpenAI response", JSON.stringify(results, null, 2));
+  if (results.error) throw new Error(`OpenAI error: ${results.error.message}`);
   return results?.data?.[0]?.embedding;
 };
 module.exports = { getCompletion, getEmbedding };
