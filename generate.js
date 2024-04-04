@@ -100,7 +100,7 @@ const getCompletion = async (config, opts) => {
 
 const getCompletionOpenAICompatible = async (
   { chatCompleteEndpoint, bearer, model },
-  { systemPrompt, prompt, temperature, chat = [], ...rest }
+  { systemPrompt, prompt, temperature, debugResult, chat = [], ...rest }
 ) => {
   const headers = {
     "Content-Type": "application/json",
@@ -127,7 +127,8 @@ const getCompletionOpenAICompatible = async (
     body: JSON.stringify(body),
   });
   const results = await rawResponse.json();
-  //console.log(JSON.stringify(results, null, 2));
+  if (debugResult)
+    console.log("OpenAI response", JSON.stringify(results, null, 2));
 
   return (
     results?.choices?.[0]?.message?.content ||
