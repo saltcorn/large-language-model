@@ -109,7 +109,7 @@ const getCompletionOpenAICompatible = async (
   if (bearer) headers.Authorization = "Bearer " + bearer;
   const body = {
     //prompt: "How are you?",
-    model,
+    model: rest.model || model,
     messages: [
       {
         role: "system",
