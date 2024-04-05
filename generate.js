@@ -121,6 +121,7 @@ const getCompletionOpenAICompatible = async (
     temperature: temperature || 0.7,
     ...rest,
   };
+  if (debugResult) console.log("OpenAI request", JSON.stringify(body, null, 2));
   const rawResponse = await fetch(chatCompleteEndpoint, {
     method: "POST",
     headers,
