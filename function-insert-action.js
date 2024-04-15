@@ -120,7 +120,7 @@ module.exports = (config) => ({
     };
     //console.log(JSON.stringify(expert_function, null, 2));
     const compl = await getCompletion(config, { prompt, ...toolargs });
-
+    getState().log(6, `llm_function_call completion: ${JSON.stringify(compl)}`);
     const response = JSON.parse(compl.tool_calls[0].function.arguments);
     //console.log("response: ", JSON.stringify(response, null, 2));
     for (const col of columns) {
