@@ -8,25 +8,32 @@ const { getCompletion, getEmbedding } = require("./generate");
 
 module.exports = {
   description: "Use LLM function call to insert rows in tables",
+  requireRow: true,
   configFields: async ({ table }) => {
-    const tables = Table.find();
+    const tables = await Table.find();
     return [
-      { name: "prompt", label: "Prompt" },
+      {
+        name: "prompt",
+        label: "Prompt",
+        type: "String",
+        fieldview: "textarea",
+        sublabel: `Use interpolations {{ }} to access variables in ${table.name} table.`,
+      },
       new FieldRepeat({
         name: "columns",
         fields: [
           {
-            name: "table",
-            label: "Table",
+            name: "target_table",
+            label: "Target table",
             type: "String",
             required: true,
-            attributes: { options: table.map((t) => t.name) },
+            attributes: { options: tables.map((t) => t.name) },
           },
           {
-            name: "Fixed values",
-            label: "fixed_values",
+            label: "Fixed values",
+            name: "fixed_values",
             type: "String",
-            required: true,
+            fieldview: "textarea",
           },
           {
             name: "cardinality",

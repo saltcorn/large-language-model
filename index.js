@@ -140,4 +140,7 @@ module.exports = {
   configuration_workflow,
   functions,
   modelpatterns: require("./model.js"),
+  actions: (config) => ({
+    llm_function_call: require("./function-insert-action.js"),
+  }),
 };
