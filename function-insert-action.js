@@ -8,6 +8,7 @@ const { interpolate } = require("@saltcorn/data/utils");
 const { getCompletion, getEmbedding } = require("./generate");
 const { eval_expression } = require("@saltcorn/data/models/expression");
 
+const noSpaces = (s) => s.replaceAll(" ", "");
 module.exports = (config) => ({
   description: "Use LLM function call to insert rows in tables",
   requireRow: true,
@@ -73,7 +74,7 @@ module.exports = (config) => ({
     user,
   }) => {
     const prompt = interpolate(prompt_template, row, user);
-    const args = {};
+    let args = {};
     const json_type = (ty) => {
       if (ty?.js_type) return ty?.js_type;
     };
@@ -96,7 +97,7 @@ module.exports = (config) => ({
         };
       }
       const argObj = { type: "object", properties: tableArgs };
-      args[target_table.name] =
+      args[noSpaces(target_table.name)] =
         col.cardinality == "One" ? argObj : { type: "array", items: argObj };
     }
     if (columns.length === 1) {
@@ -117,8 +118,11 @@ module.exports = (config) => ({
       tools: [expert_function],
       tool_choice: { type: "function", function: { name: function_name } },
     };
+    //console.log(JSON.stringify(expert_function, null, 2));
     const compl = await getCompletion(config, { prompt, ...toolargs });
+
     const response = JSON.parse(compl.tool_calls[0].function.arguments);
+    //console.log("response: ", JSON.stringify(response, null, 2));
     for (const col of columns) {
       const target_table = Table.findOne({ name: col.target_table });
       const fixed = eval_expression(
@@ -127,11 +131,17 @@ module.exports = (config) => ({
         user,
         "llm_function_call fixed values"
       );
+
       if (col.cardinality == "One") {
+        const row = {
+          ...(response[noSpaces(target_table.name)] || {}),
+          ...fixed,
+        };
+        await target_table.insertRow(row, user);
       } else {
-        for (const resp of response[target_table.name] || []) {
+        for (const resp of response[noSpaces(target_table.name)] || []) {
           const row = { ...resp, ...fixed };
-          const insres = await target_table.insertRow(row, user);
+          await target_table.insertRow(row, user);
         }
       }
     }
