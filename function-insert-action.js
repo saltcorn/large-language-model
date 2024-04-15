@@ -4,20 +4,33 @@ const FieldRepeat = require("@saltcorn/data/models/fieldrepeat");
 const Field = require("@saltcorn/data/models/field");
 const Table = require("@saltcorn/data/models/table");
 const { getState } = require("@saltcorn/data/db/state");
+const { interpolate } = require("@saltcorn/data/utils");
 const { getCompletion, getEmbedding } = require("./generate");
+const { eval_expression } = require("@saltcorn/data/models/expression");
 
-module.exports = {
+module.exports = (config) => ({
   description: "Use LLM function call to insert rows in tables",
   requireRow: true,
   configFields: async ({ table }) => {
     const tables = await Table.find();
     return [
       {
-        name: "prompt",
+        name: "prompt_template",
         label: "Prompt",
         type: "String",
         fieldview: "textarea",
         sublabel: `Use interpolations {{ }} to access variables in ${table.name} table.`,
+      },
+      {
+        name: "function_name",
+        label: "Function name",
+        type: "String",
+      },
+      {
+        name: "function_description",
+        label: "Function description",
+        sublabel: "Describe what you are trying to achieve in general terms",
+        type: "String",
       },
       new FieldRepeat({
         name: "columns",
@@ -41,12 +54,87 @@ module.exports = {
             type: "String",
             required: true,
             attributes: {
-              options: ["One", "Zero or one", "Zero to many"],
+              options: ["One", /*"Zero or one",*/ "Zero to many"],
             },
           },
         ],
       }),
     ];
   },
-  run: async ({ row, table, configuration: { prompt, columns }, user }) => {},
-};
+  run: async ({
+    row,
+    table,
+    configuration: {
+      prompt_template,
+      columns,
+      function_description,
+      function_name,
+    },
+    user,
+  }) => {
+    const prompt = interpolate(prompt_template, row, user);
+    const args = {};
+    const json_type = (ty) => {
+      if (ty?.js_type) return ty?.js_type;
+    };
+
+    for (const col of columns) {
+      const target_table = Table.findOne({ name: col.target_table });
+      const tableArgs = {};
+      const fixed = eval_expression(
+        col.fixed_values,
+        row,
+        user,
+        "llm_function_call fixed values"
+      );
+      for (const field of target_table.fields) {
+        if (field.primary_key) continue;
+        if (typeof fixed[field.name] !== "undefined") continue;
+        tableArgs[field.name] = {
+          type: json_type(field.type),
+          description: field.description,
+        };
+      }
+      const argObj = { type: "object", properties: tableArgs };
+      args[target_table.name] =
+        col.cardinality == "One" ? argObj : { type: "array", items: argObj };
+    }
+    if (columns.length === 1) {
+      //args = args[Object]
+    }
+    const expert_function = {
+      type: "function",
+      function: {
+        name: function_name,
+        description: function_description,
+        parameters: {
+          type: "object",
+          properties: args,
+        },
+      },
+    };
+    const toolargs = {
+      tools: [expert_function],
+      tool_choice: { type: "function", function: { name: function_name } },
+    };
+    const compl = await getCompletion(config, { prompt, ...toolargs });
+    const response = JSON.parse(compl.tool_calls[0].function.arguments);
+    for (const col of columns) {
+      const target_table = Table.findOne({ name: col.target_table });
+      const fixed = eval_expression(
+        col.fixed_values,
+        row,
+        user,
+        "llm_function_call fixed values"
+      );
+      if (col.cardinality == "One") {
+      } else {
+        for (const resp of response[target_table.name] || []) {
+          const row = { ...resp, ...fixed };
+          const insres = await target_table.insertRow(row, user);
+        }
+      }
+    }
+    return {};
+  },
+});

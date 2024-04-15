@@ -141,6 +141,6 @@ module.exports = {
   functions,
   modelpatterns: require("./model.js"),
   actions: (config) => ({
-    llm_function_call: require("./function-insert-action.js"),
+    llm_function_call: require("./function-insert-action.js")(config),
   }),
 };
