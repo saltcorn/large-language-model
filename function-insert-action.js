@@ -12,6 +12,8 @@ const noSpaces = (s) => s.replaceAll(" ", "");
 module.exports = (config) => ({
   description: "Use LLM function call to insert rows in tables",
   requireRow: true,
+  disableInList: true,
+  disableInBuilder: true,
   configFields: async ({ table }) => {
     const tables = await Table.find();
     return [
