@@ -97,6 +97,12 @@ const configuration_workflow = () =>
                 showIf: { backend: ["OpenAI-compatible API", "Local Ollama"] },
               },
               {
+                name: "embed_model",
+                label: "Embedding model",
+                type: "String",
+                showIf: { backend: "Local Ollama" },
+              },
+              {
                 name: "endpoint",
                 label: "Chat completions endpoint",
                 type: "String",

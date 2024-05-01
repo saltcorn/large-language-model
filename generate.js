@@ -33,7 +33,7 @@ const getEmbedding = async (config, opts) => {
       const { Ollama } = ollamaMod;
       const ollama = new Ollama();
       const olres = await ollama.embeddings({
-        model: opts?.model || config.model,
+        model: opts?.model || config.embed_model || config.model,
         prompt: opts.prompt,
       });
       //console.log("embedding response ", olres);
