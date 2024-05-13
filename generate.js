@@ -23,21 +23,31 @@ const getEmbedding = async (config, opts) => {
         {
           embeddingsEndpoint: config.embed_endpoint,
           bearer: config.api_key,
-          embed_model: config.model,
+          embed_model: config.embed_model || config.model,
         },
         opts
       );
     case "Local Ollama":
-      if (!ollamaMod) throw new Error("Not implemented for this backend");
+      if (config.embed_endpoint) {
+        return await getEmbeddingOpenAICompatible(
+          {
+            embeddingsEndpoint: config.embed_endpoint,
+            embed_model: config.embed_model || config.model,
+          },
+          opts
+        );
+      } else {
+        if (!ollamaMod) throw new Error("Not implemented for this backend");
 
-      const { Ollama } = ollamaMod;
-      const ollama = new Ollama();
-      const olres = await ollama.embeddings({
-        model: opts?.model || config.embed_model || config.model,
-        prompt: opts.prompt,
-      });
-      //console.log("embedding response ", olres);
-      return olres.embedding;
+        const { Ollama } = ollamaMod;
+        const ollama = new Ollama();
+        const olres = await ollama.embeddings({
+          model: opts?.model || config.embed_model || config.model,
+          prompt: opts.prompt,
+        });
+        //console.log("embedding response ", olres);
+        return olres.embedding;
+      }
     default:
       throw new Error("Not implemented for this backend");
   }
@@ -71,7 +81,7 @@ const getCompletion = async (config, opts) => {
       const ollama = new Ollama();
       const olres = await ollama.generate({
         model: config.model,
-        prompt: opts.prompt,
+        ...opts,
       });
       //console.log("the response ", olres);
       return olres.response;

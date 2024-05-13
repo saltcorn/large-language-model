@@ -116,6 +116,14 @@ const configuration_workflow = () =>
                 sublabel: "Example: http://127.0.0.1:8080/v1/embeddings",
                 showIf: { backend: "OpenAI-compatible API" },
               },
+              {
+                name: "embed_endpoint",
+                label: "Embedding endpoint",
+                type: "String",
+                sublabel:
+                  "Optional. Use an alternative OpenAI-compatible API for embeddings. Example: http://127.0.0.1:8080/v1/embeddings",
+                showIf: { backend: "Local Ollama" },
+              },
             ],
           });
         },
