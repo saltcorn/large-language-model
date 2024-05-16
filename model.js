@@ -43,6 +43,7 @@ const configuration_workflow = (config) => (req) =>
               "gpt-4-1106-preview",
               "gpt-4-0125-preview",
               "gpt-4-turbo",
+              "gpt-4o",
             ];
           }
           return new Form({
