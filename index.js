@@ -60,6 +60,8 @@ const configuration_workflow = () =>
                     "gpt-3.5-turbo-16k",
                     "gpt-3.5-turbo-1106",
                     "gpt-3.5-turbo-0125",
+                    "gpt-3.5-turbo-0613",
+                    "gpt-3.5-turbo-16k-0613",
                     "gpt-4",
                     "gpt-4-32k",
                     "gpt-4-turbo-preview",
@@ -122,7 +124,7 @@ const configuration_workflow = () =>
                 label: "Embedding endpoint",
                 type: "String",
                 sublabel:
-                  "Optional. Use an alternative OpenAI-compatible API for embeddings. Example: http://127.0.0.1:8080/v1/embeddings",
+                  "Optional. Example: http://localhost:11434/api/embeddings",
                 showIf: { backend: "Local Ollama" },
               },
             ],
