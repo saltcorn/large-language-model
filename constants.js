@@ -14,4 +14,10 @@ const OPENAI_MODELS = [
   "gpt-4o",
 ];
 
-module.exports = { OPENAI_MODELS };
+const OLLAMA_MODELS_PATH = {
+  Darwin: "~/.ollama/models",
+  Linux: "/usr/share/ollama/.ollama/models",
+  Windows_NT: "C:\\Users\\%username%\\.ollama\\models."
+}
+
+module.exports = { OPENAI_MODELS, OLLAMA_MODELS_PATH };

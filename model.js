@@ -12,6 +12,7 @@ const fs = require("fs");
 const _ = require("underscore");
 
 const { getCompletion } = require("./generate");
+const { OLLAMA_MODELS_PATH } = require("./constants");
 
 const configuration_workflow = (config) => (req) =>
   new Workflow({
@@ -34,8 +35,7 @@ const configuration_workflow = (config) => (req) =>
           } else if (config.backend === "OpenAI") {
             models = OPENAI_MODELS;
           } else if (config.backend === "Local Ollama") {
-            models = fs.readdirSync("~/.ollama/models/manifests/registry.ollama.ai/library");
-            // models = fs.readdirSync(path.join(config.ollama_dir, "models"));
+            models = fs.readdirSync(path.join(OLLAMA_MODELS_PATH[os.type()], "manifests/registry.ollama.ai/library"));
           }
           return new Form({
             fields: [
