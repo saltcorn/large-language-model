@@ -32,21 +32,10 @@ const configuration_workflow = (config) => (req) =>
           if (config.backend === "Local llama.cpp") {
             models = fs.readdirSync(path.join(config.llama_dir, "models"));
           } else if (config.backend === "OpenAI") {
-            models = [
-              "gpt-3.5-turbo",
-              "gpt-3.5-turbo-16k",
-              "gpt-3.5-turbo-1106",
-              "gpt-3.5-turbo-0125",
-              "gpt-4",
-              "gpt-4-32k",
-              "gpt-4-turbo-preview",
-              "gpt-4-1106-preview",
-              "gpt-4-0125-preview",
-              "gpt-4-turbo",
-              "gpt-4o",
-            ];
+            models = OPENAI_MODELS;
           } else if (config.backend === "Local Ollama") {
-            // models = fs.readdirSync(path.join(config.ollama_dir, "models")); TODO: something like ~/.ollama/models/manifests/registry.ollama.ai/library
+            models = fs.readdirSync("~/.ollama/models/manifests/registry.ollama.ai/library");
+            // models = fs.readdirSync(path.join(config.ollama_dir, "models"));
           }
           return new Form({
             fields: [
