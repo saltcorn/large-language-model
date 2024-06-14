@@ -12,7 +12,7 @@ const fs = require("fs");
 const _ = require("underscore");
 
 const { getCompletion } = require("./generate");
-const { OLLAMA_MODELS_PATH } = require("./constants");
+const { OPENAI_MODELS, OLLAMA_MODELS_PATH } = require("./constants");
 
 const configuration_workflow = (config) => (req) =>
   new Workflow({

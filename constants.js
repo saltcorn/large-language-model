@@ -14,8 +14,9 @@ const OPENAI_MODELS = [
   "gpt-4o",
 ];
 
+// https://github.com/ollama/ollama/blob/main/docs/faq.md#where-are-models-stored
 const OLLAMA_MODELS_PATH = {
-  Darwin: "~/.ollama/models",
+  Darwin: `${process.env.HOME}/.ollama/models`,
   Linux: "/usr/share/ollama/.ollama/models",
   Windows_NT: "C:\\Users\\%username%\\.ollama\\models."
 }
