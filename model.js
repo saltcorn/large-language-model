@@ -12,6 +12,7 @@ const fs = require("fs");
 const _ = require("underscore");
 
 const { getCompletion } = require("./generate");
+const { OPENAI_MODELS, OLLAMA_MODELS_PATH } = require("./constants");
 
 const configuration_workflow = (config) => (req) =>
   new Workflow({
@@ -32,19 +33,9 @@ const configuration_workflow = (config) => (req) =>
           if (config.backend === "Local llama.cpp") {
             models = fs.readdirSync(path.join(config.llama_dir, "models"));
           } else if (config.backend === "OpenAI") {
-            models = [
-              "gpt-3.5-turbo",
-              "gpt-3.5-turbo-16k",
-              "gpt-3.5-turbo-1106",
-              "gpt-3.5-turbo-0125",
-              "gpt-4",
-              "gpt-4-32k",
-              "gpt-4-turbo-preview",
-              "gpt-4-1106-preview",
-              "gpt-4-0125-preview",
-              "gpt-4-turbo",
-              "gpt-4o",
-            ];
+            models = OPENAI_MODELS;
+          } else if (config.backend === "Local Ollama") {
+            models = fs.readdirSync(path.join(OLLAMA_MODELS_PATH[os.type()], "manifests/registry.ollama.ai/library"));
           }
           return new Form({
             fields: [
@@ -109,7 +100,7 @@ const modelpatterns = (config) => ({
               name: "repeat_penalty",
               label: "Repeat penalty",
               type: "Float",
-              attributes: { min: 0 },
+              attributes: { min: 0, decimal_places: 1 },
               default: 1.1,
             },
           ]
@@ -118,7 +109,7 @@ const modelpatterns = (config) => ({
         name: "temp",
         label: "Temperature",
         type: "Float",
-        attributes: { min: 0 },
+        attributes: { min: 0, max: 1, decimal_places: 1 },
         default: 0.8,
       },
     ],
