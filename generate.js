@@ -13,17 +13,21 @@ const getEmbedding = async (config, opts) => {
       return await getEmbeddingOpenAICompatible(
         {
           embeddingsEndpoint: "https://api.openai.com/v1/embeddings",
-          bearer: config.api_key,
-          embed_model: config.embed_model,
+          bearer: opts?.api_key || config.api_key,
+          embed_model: opts?.model || config.embed_model,
         },
         opts
       );
     case "OpenAI-compatible API":
       return await getEmbeddingOpenAICompatible(
         {
-          embeddingsEndpoint: config.embed_endpoint,
-          bearer: config.api_key,
-          embed_model: config.embed_model || config.model,
+          embeddingsEndpoint: opts?.endpoint || config.embed_endpoint,
+          bearer: opts?.bearer || opts?.api_key || config.api_key,
+          embed_model:
+            opts?.embed_model ||
+            opts?.model ||
+            config.embed_model ||
+            config.model,
         },
         opts
       );
@@ -32,7 +36,11 @@ const getEmbedding = async (config, opts) => {
         return await getEmbeddingOpenAICompatible(
           {
             embeddingsEndpoint: config.embed_endpoint,
-            embed_model: config.embed_model || config.model,
+            embed_model:
+              opts?.embed_model ||
+              opts?.model ||
+              config.embed_model ||
+              config.model,
           },
           opts
         );
@@ -59,17 +67,17 @@ const getCompletion = async (config, opts) => {
       return await getCompletionOpenAICompatible(
         {
           chatCompleteEndpoint: "https://api.openai.com/v1/chat/completions",
-          bearer: config.api_key,
-          model: config.model,
+          bearer: opts?.api_key || opts?.bearer || config.api_key,
+          model: opts?.model || config.model,
         },
         opts
       );
     case "OpenAI-compatible API":
       return await getCompletionOpenAICompatible(
         {
-          chatCompleteEndpoint: config.endpoint,
-          bearer: config.bearer,
-          model: config.model,
+          chatCompleteEndpoint: opts?.endpoint || config.endpoint,
+          bearer: opts?.bearer || opts?.api_key || config.bearer,
+          model: opts?.model || config.model,
         },
         opts
       );
@@ -80,7 +88,7 @@ const getCompletion = async (config, opts) => {
 
       const ollama = new Ollama();
       const olres = await ollama.generate({
-        model: config.model,
+        model: opts?.model || config.model,
         ...opts,
       });
       //console.log("the response ", olres);
