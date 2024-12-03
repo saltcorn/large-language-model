@@ -23,6 +23,7 @@ const getEmbedding = async (config, opts) => {
         {
           embeddingsEndpoint: opts?.endpoint || config.embed_endpoint,
           bearer: opts?.bearer || opts?.api_key || config.api_key,
+          apiKey: opts?.api_key || config.api_key,
           embed_model:
             opts?.embed_model ||
             opts?.model ||
@@ -77,6 +78,7 @@ const getCompletion = async (config, opts) => {
         {
           chatCompleteEndpoint: opts?.endpoint || config.endpoint,
           bearer: opts?.bearer || opts?.api_key || config.bearer,
+          apiKey: opts?.api_key || config.api_key,
           model: opts?.model || config.model,
         },
         opts
@@ -117,7 +119,7 @@ const getCompletion = async (config, opts) => {
 };
 
 const getCompletionOpenAICompatible = async (
-  { chatCompleteEndpoint, bearer, model },
+  { chatCompleteEndpoint, bearer, apiKey, model },
   { systemPrompt, prompt, temperature, debugResult, chat = [], ...rest }
 ) => {
   const headers = {
@@ -125,6 +127,7 @@ const getCompletionOpenAICompatible = async (
     Accept: "application/json",
   };
   if (bearer) headers.Authorization = "Bearer " + bearer;
+  if (apiKey) headers["api-key"] = apiKey;
   const body = {
     //prompt: "How are you?",
     model: rest.model || model,
@@ -162,12 +165,13 @@ const getEmbeddingOpenAICompatible = async (
   config,
   { prompt, model, debugResult }
 ) => {
-  const { embeddingsEndpoint, bearer, embed_model } = config;
+  const { embeddingsEndpoint, bearer, apiKey, embed_model } = config;
   const headers = {
     "Content-Type": "application/json",
     Accept: "application/json",
   };
   if (bearer) headers.Authorization = "Bearer " + bearer;
+  if (apiKey) headers["api-key"] = apiKey;
   const body = {
     //prompt: "How are you?",
     model: model || embed_model || "text-embedding-3-small",
