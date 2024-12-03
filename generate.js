@@ -120,7 +120,16 @@ const getCompletion = async (config, opts) => {
 
 const getCompletionOpenAICompatible = async (
   { chatCompleteEndpoint, bearer, apiKey, model },
-  { systemPrompt, prompt, temperature, debugResult, chat = [], ...rest }
+  {
+    systemPrompt,
+    prompt,
+    temperature,
+    debugResult,
+    chat = [],
+    api_key,
+    endpoint,
+    ...rest
+  }
 ) => {
   const headers = {
     "Content-Type": "application/json",
