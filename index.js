@@ -124,6 +124,7 @@ const configuration_workflow = () =>
 let initialConfig;
 const functions = (config) => {
   initialConfig = JSON.stringify(config);
+  console.log("Initialising LLM functions with Config", config);
   return {
     llm_generate: {
       run: async (prompt, opts) => {
