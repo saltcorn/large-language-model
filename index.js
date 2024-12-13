@@ -120,24 +120,64 @@ const configuration_workflow = () =>
       },
     ],
   });
-const functions = (config) => ({
-  llm_generate: {
-    run: async (prompt, opts) => {
-      return await getCompletion(config, { prompt, ...opts });
+
+let initialConfig;
+const functions = (config) => {
+  initialConfig = JSON.stringify(config);
+  return {
+    llm_generate: {
+      run: async (prompt, opts) => {
+        let changedBefore = false;
+        if (JSON.stringify(config) !== initialConfig) {
+          console.error(
+            "LLM CONFIG CHANGED BEFORE COMPLETION RUN",
+            initialConfig,
+            JSON.stringify(config)
+          );
+          changedBefore = true;
+        }
+        const result = await getCompletion(config, { prompt, ...opts });
+        if (JSON.stringify(config) !== initialConfig && !changedBefore) {
+          console.error(
+            "LLM CONFIG CHANGED AFTER COMPLETION RUN",
+            initialConfig,
+            JSON.stringify(config)
+          );
+        }
+        return result;
+      },
+      isAsync: true,
+      description: "Generate text with GPT",
+      arguments: [{ name: "prompt", type: "String" }],
     },
-    isAsync: true,
-    description: "Generate text with GPT",
-    arguments: [{ name: "prompt", type: "String" }],
-  },
-  llm_embedding: {
-    run: async (prompt, opts) => {
-      return await getEmbedding(config, { prompt, ...opts });
+    llm_embedding: {
+      run: async (prompt, opts) => {
+        let changedBefore = false;
+        if (JSON.stringify(config) !== initialConfig) {
+          console.error(
+            "LLM CONFIG CHANGED BEFORE EMBEDDING RUN",
+            initialConfig,
+            JSON.stringify(config)
+          );
+          changedBefore = true;
+        }
+
+        const result = await getEmbedding(config, { prompt, ...opts });
+        if (JSON.stringify(config) !== initialConfig && !changedBefore) {
+          console.error(
+            "LLM CONFIG CHANGED AFTER EMBEDDING RUN",
+            initialConfig,
+            JSON.stringify(config)
+          );
+        }
+        return result;
+      },
+      isAsync: true,
+      description: "Get vector embedding",
+      arguments: [{ name: "prompt", type: "String" }],
     },
-    isAsync: true,
-    description: "Get vector embedding",
-    arguments: [{ name: "prompt", type: "String" }],
-  },
-});
+  };
+};
 
 module.exports = {
   sc_plugin_api_version: 1,
