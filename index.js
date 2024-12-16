@@ -155,12 +155,64 @@ module.exports = {
     llm_generate: {
       requireRow: true,
       configFields: ({ table, mode }) => {
+        const override_fields = [
+          {
+            name: "override_config",
+            label: "Override LLM configuration",
+            type: "Bool",
+          },
+          {
+            name: "override_endpoint",
+            label: "Endpoint",
+            type: "String",
+            showIf: { override_config: true },
+          },
+          {
+            name: "override_model",
+            label: "Model",
+            type: "String",
+            showIf: { override_config: true },
+          },
+          {
+            name: "override_apikey",
+            label: "API key",
+            type: "String",
+            showIf: { override_config: true },
+          },
+          {
+            name: "override_bearer",
+            label: "Bearer",
+            type: "String",
+            showIf: { override_config: true },
+          },
+        ];
+
+        if (mode === "workflow") {
+          return [
+            {
+              name: "prompt_formula",
+              label: "Prompt expression",
+              sublabel:
+                "JavaScript expression evalutating to the text of the prompt, based on the context",
+              type: "String",
+              required: true,
+            },
+            {
+              name: "answer_field",
+              label: "Answer variable",
+              sublabel: "Set the generated answer to this context variable",
+              type: "String",
+              required: true,
+            },
+            ...override_fields,
+          ];
+        }
         if (table) {
           const textFields = table.fields
             .filter((f) => f.type?.sql_name === "text")
             .map((f) => f.name);
 
-          const cfgFields = [
+          return [
             {
               name: "prompt_field",
               label: "Prompt field",
@@ -183,43 +235,15 @@ module.exports = {
               required: true,
               attributes: { options: textFields },
             },
-            {
-              name: "override_config",
-              label: "Override LLM configuration",
-              type: "Bool",
-            },
-            {
-              name: "override_endpoint",
-              label: "Endpoint",
-              type: "String",
-              showIf: { override_config: true },
-            },
-            {
-              name: "override_model",
-              label: "Model",
-              type: "String",
-              showIf: { override_config: true },
-            },
-            {
-              name: "override_apikey",
-              label: "API key",
-              type: "String",
-              showIf: { override_config: true },
-            },
-            {
-              name: "override_bearer",
-              label: "Bearer",
-              type: "String",
-              showIf: { override_config: true },
-            },
+            ...override_fields,
           ];
-          return cfgFields;
         }
       },
       run: async ({
         row,
         table,
         user,
+        mode,
         configuration: {
           prompt_field,
           prompt_formula,
@@ -232,7 +256,7 @@ module.exports = {
         },
       }) => {
         let prompt;
-        if (prompt_field === "Formula")
+        if (prompt_field === "Formula" || mode === "workflow")
           prompt = eval_expression(
             prompt_formula,
             row,
@@ -248,7 +272,8 @@ module.exports = {
           opts.bearer = override_bearer;
         }
         const ans = await getCompletion(config, { prompt, ...opts });
-        await table.updateRow({ [answer_field]: ans }, row[table.pk_name]);
+        if (mode === "workflow") return { [answer_field]: ans };
+        else await table.updateRow({ [answer_field]: ans }, row[table.pk_name]);
       },
     },
   }),
