@@ -77,7 +77,11 @@ const getCompletion = async (config, opts) => {
       return await getCompletionOpenAICompatible(
         {
           chatCompleteEndpoint: opts?.endpoint || config.endpoint,
-          bearer: opts?.bearer || opts?.api_key || config.bearer,
+          bearer:
+            opts?.bearer ||
+            opts?.api_key ||
+            config.bearer_auth ||
+            config.bearer,
           apiKey: opts?.api_key || config.api_key,
           model: opts?.model || config.model,
         },

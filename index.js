@@ -5,6 +5,7 @@ const db = require("@saltcorn/data/db");
 const { getCompletion, getEmbedding } = require("./generate");
 const { OPENAI_MODELS } = require("./constants.js");
 const { eval_expression } = require("@saltcorn/data/models/expression");
+const { interpolate } = require("@saltcorn/data/utils");
 
 const configuration_workflow = () =>
   new Workflow({
@@ -211,11 +212,12 @@ module.exports = {
         if (mode === "workflow") {
           return [
             {
-              name: "prompt_formula",
-              label: "Prompt expression",
+              name: "prompt_template",
+              label: "Prompt",
               sublabel:
-                "JavaScript expression evalutating to the text of the prompt, based on the context",
+                "Prompt text. Use interpolations {{ }} to access variables in the context",
               type: "String",
+              fieldview: "textarea",
               required: true,
             },
             {
@@ -268,12 +270,15 @@ module.exports = {
         configuration: {
           prompt_field,
           prompt_formula,
+          prompt_template,
           answer_field,
           override_config,
         },
       }) => {
         let prompt;
-        if (prompt_field === "Formula" || mode === "workflow")
+        if (mode === "workflow")
+          prompt = interpolate(prompt_template, row, user);
+        else if (prompt_field === "Formula" || mode === "workflow")
           prompt = eval_expression(
             prompt_formula,
             row,
