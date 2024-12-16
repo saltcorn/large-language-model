@@ -3,6 +3,7 @@ const Form = require("@saltcorn/data/models/form");
 const db = require("@saltcorn/data/db");
 const { getCompletion, getEmbedding } = require("./generate");
 const { OPENAI_MODELS } = require("./constants.js");
+const { eval_expression } = require("@saltcorn/data/models/expression");
 
 const configuration_workflow = () =>
   new Workflow({
@@ -166,7 +167,13 @@ module.exports = {
               sublabel: "Field with the text of the prompt",
               type: "String",
               required: true,
-              attributes: { options: textFields },
+              attributes: { options: [...textFields, "Formula"] },
+            },
+            {
+              name: "prompt_formula",
+              label: "Prompt formula",
+              type: "String",
+              showIf: { prompt_field: "Formula" },
             },
             {
               name: "answer_field",
@@ -212,8 +219,10 @@ module.exports = {
       run: async ({
         row,
         table,
+        user,
         configuration: {
           prompt_field,
+          prompt_formula,
           answer_field,
           override_config,
           override_endpoint,
@@ -222,7 +231,15 @@ module.exports = {
           override_bearer,
         },
       }) => {
-        const prompt = row[prompt_field];
+        let prompt;
+        if (prompt_field === "Formula")
+          prompt = eval_expression(
+            prompt_formula,
+            row,
+            user,
+            "llm_generate prompt formula"
+          );
+        else prompt = row[prompt_field];
         const opts = {};
         if (override_config) {
           opts.endpoint = override_endpoint;
