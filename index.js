@@ -151,5 +151,88 @@ module.exports = {
   modelpatterns: require("./model.js"),
   actions: (config) => ({
     llm_function_call: require("./function-insert-action.js")(config),
+    llm_generate: {
+      requireRow: true,
+      configFields: ({ table, mode }) => {
+        if (table) {
+          const textFields = table.fields
+            .filter((f) => f.type?.sql_name === "text")
+            .map((f) => f.name);
+
+          const cfgFields = [
+            {
+              name: "prompt_field",
+              label: "Prompt field",
+              sublabel: "Field with the text of the prompt",
+              type: "String",
+              required: true,
+              attributes: { options: textFields },
+            },
+            {
+              name: "answer_field",
+              label: "Answer field",
+              sublabel: "Output field will be set to the generated answer",
+              type: "String",
+              required: true,
+              attributes: { options: textFields },
+            },
+            {
+              name: "override_config",
+              label: "Override LLM configuration",
+              type: "Bool",
+            },
+            {
+              name: "override_endpoint",
+              label: "Endpoint",
+              type: "String",
+              showIf: { override_config: true },
+            },
+            {
+              name: "override_model",
+              label: "Model",
+              type: "String",
+              showIf: { override_config: true },
+            },
+            {
+              name: "override_apikey",
+              label: "API key",
+              type: "String",
+              showIf: { override_config: true },
+            },
+            {
+              name: "override_bearer",
+              label: "Bearer",
+              type: "String",
+              showIf: { override_config: true },
+            },
+          ];
+          return cfgFields;
+        }
+      },
+      run: async ({
+        row,
+        table,
+        configuration: {
+          prompt_field,
+          answer_field,
+          override_config,
+          override_endpoint,
+          override_model,
+          override_apikey,
+          override_bearer,
+        },
+      }) => {
+        const prompt = row[prompt_field];
+        const opts = {};
+        if (override_config) {
+          opts.endpoint = override_endpoint;
+          opts.model = override_model;
+          opts.apikey = override_apikey;
+          opts.bearer = override_bearer;
+        }
+        const ans = await getCompletion(config, { prompt, ...opts });
+        await table.updateRow({ [answer_field]: ans }, row[table.pk_name]);
+      },
+    },
   }),
 };
