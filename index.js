@@ -121,30 +121,11 @@ const configuration_workflow = () =>
     ],
   });
 
-let initialConfig;
 const functions = (config) => {
-  initialConfig = JSON.stringify(config);
-  console.log("Initialising LLM functions with Config", config);
   return {
     llm_generate: {
       run: async (prompt, opts) => {
-        let changedBefore = false;
-        if (JSON.stringify(config) !== initialConfig) {
-          console.error(
-            "LLM CONFIG CHANGED BEFORE COMPLETION RUN",
-            initialConfig,
-            JSON.stringify(config)
-          );
-          changedBefore = true;
-        }
         const result = await getCompletion(config, { prompt, ...opts });
-        if (JSON.stringify(config) !== initialConfig && !changedBefore) {
-          console.error(
-            "LLM CONFIG CHANGED AFTER COMPLETION RUN",
-            initialConfig,
-            JSON.stringify(config)
-          );
-        }
         return result;
       },
       isAsync: true,
@@ -153,24 +134,7 @@ const functions = (config) => {
     },
     llm_embedding: {
       run: async (prompt, opts) => {
-        let changedBefore = false;
-        if (JSON.stringify(config) !== initialConfig) {
-          console.error(
-            "LLM CONFIG CHANGED BEFORE EMBEDDING RUN",
-            initialConfig,
-            JSON.stringify(config)
-          );
-          changedBefore = true;
-        }
-
         const result = await getEmbedding(config, { prompt, ...opts });
-        if (JSON.stringify(config) !== initialConfig && !changedBefore) {
-          console.error(
-            "LLM CONFIG CHANGED AFTER EMBEDDING RUN",
-            initialConfig,
-            JSON.stringify(config)
-          );
-        }
         return result;
       },
       isAsync: true,
