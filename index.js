@@ -195,37 +195,18 @@ module.exports = {
     llm_generate: {
       requireRow: true,
       configFields: ({ table, mode }) => {
-        const override_fields = [
-          {
-            name: "override_config",
-            label: "Override LLM configuration",
-            type: "Bool",
-          },
-          {
-            name: "override_endpoint",
-            label: "Endpoint",
-            type: "String",
-            showIf: { override_config: true },
-          },
-          {
-            name: "override_model",
-            label: "Model",
-            type: "String",
-            showIf: { override_config: true },
-          },
-          {
-            name: "override_apikey",
-            label: "API key",
-            type: "String",
-            showIf: { override_config: true },
-          },
-          {
-            name: "override_bearer",
-            label: "Bearer",
-            type: "String",
-            showIf: { override_config: true },
-          },
-        ];
+        const override_fields =
+          config.backend === "OpenAI-compatible API" &&
+          (config.altconfigs || []).filter((c) => c.name).length
+            ? [
+                {
+                  name: "override_config",
+                  label: "Alternative LLM configuration",
+                  type: "String",
+                  attributes: { options: config.altconfigs.map((c) => c.name) },
+                },
+              ]
+            : [];
 
         if (mode === "workflow") {
           return [
@@ -289,10 +270,6 @@ module.exports = {
           prompt_formula,
           answer_field,
           override_config,
-          override_endpoint,
-          override_model,
-          override_apikey,
-          override_bearer,
         },
       }) => {
         let prompt;
@@ -306,10 +283,13 @@ module.exports = {
         else prompt = row[prompt_field];
         const opts = {};
         if (override_config) {
-          opts.endpoint = override_endpoint;
-          opts.model = override_model;
-          opts.apikey = override_apikey;
-          opts.bearer = override_bearer;
+          const altcfg = config.altconfigs.find(
+            (c) => c.name === override_config
+          );
+          opts.endpoint = altcfg.endpoint;
+          opts.model = altcfg.model;
+          opts.apikey = altcfg.apikey;
+          opts.bearer = altcfg.bearer;
         }
         const ans = await getCompletion(config, { prompt, ...opts });
         if (mode === "workflow") return { [answer_field]: ans };
