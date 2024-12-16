@@ -1,5 +1,6 @@
 const Workflow = require("@saltcorn/data/models/workflow");
 const Form = require("@saltcorn/data/models/form");
+const FieldRepeat = require("@saltcorn/data/models/fieldrepeat");
 const db = require("@saltcorn/data/db");
 const { getCompletion, getEmbedding } = require("./generate");
 const { OPENAI_MODELS } = require("./constants.js");
@@ -82,6 +83,12 @@ const configuration_workflow = () =>
                 showIf: { backend: "OpenAI-compatible API" },
               },
               {
+                name: "api_key",
+                label: "API key",
+                type: "String",
+                showIf: { backend: "OpenAI-compatible API" },
+              },
+              {
                 name: "model",
                 label: "Model",
                 type: "String",
@@ -115,6 +122,39 @@ const configuration_workflow = () =>
                   "Optional. Example: http://localhost:11434/api/embeddings",
                 showIf: { backend: "Local Ollama" },
               },
+              {
+                input_type: "section_header",
+                label: "Alternative configurations",
+                showIf: { backend: "OpenAI-compatible API" },
+              },
+              new FieldRepeat({
+                name: "altconfigs",
+                label: "Alternative configurations",
+                showIf: { backend: "OpenAI-compatible API" },
+                fields: [
+                  { name: "name", label: "Configuration name", type: "String" },
+                  {
+                    name: "model",
+                    label: "Model",
+                    type: "String",
+                  },
+                  {
+                    name: "endpoint",
+                    label: "Endpoint",
+                    type: "String",
+                  },
+                  {
+                    name: "bearer_auth",
+                    label: "Bearer Auth",
+                    type: "String",
+                  },
+                  {
+                    name: "api_key",
+                    label: "API key",
+                    type: "String",
+                  },
+                ],
+              }),
             ],
           });
         },
