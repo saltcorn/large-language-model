@@ -227,6 +227,13 @@ module.exports = {
               type: "String",
               required: true,
             },
+            {
+              name: "chat_history_field",
+              label: "Chat history variable",
+              sublabel:
+                "Use this context variable to store the chat history for subsequent prompts",
+              type: "String",
+            },
             ...override_fields,
           ];
         }
@@ -273,6 +280,7 @@ module.exports = {
           prompt_template,
           answer_field,
           override_config,
+          chat_history_field,
         },
       }) => {
         let prompt;
@@ -296,9 +304,25 @@ module.exports = {
           opts.api_key = altcfg.api_key;
           opts.bearer = altcfg.bearer;
         }
-        const ans = await getCompletion(config, { prompt, ...opts });
-        if (mode === "workflow") return { [answer_field]: ans };
-        else await table.updateRow({ [answer_field]: ans }, row[table.pk_name]);
+        let history = [];
+        if (chat_history_field && row[chat_history_field]) {
+          history = row[chat_history_field];
+        }
+        const ans = await getCompletion(config, {
+          prompt,
+          chat: history,
+          ...opts,
+        });
+        const upd = { [answer_field]: ans };
+        if (chat_history_field) {
+          upd[chat_history_field] = [
+            ...history,
+            { role: "user", content: prompt },
+            { role: "system", content: ans },
+          ];
+        }
+        if (mode === "workflow") return upd;
+        else await table.updateRow(upd, row[table.pk_name]);
       },
     },
   }),
