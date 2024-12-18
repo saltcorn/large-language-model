@@ -1,6 +1,6 @@
 {
   "name": "@saltcorn/large-language-model",
-  "version": "0.6.3",
+  "version": "0.6.4",
   "description": "Large language models and functionality for Saltcorn",
   "main": "index.js",
   "dependencies": {
