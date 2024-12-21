@@ -430,6 +430,12 @@ module.exports = {
               "Select to generate an array of objects. Unselect for a single object",
           },
           {
+            name: "gen_description",
+            label: "Description",
+            sublabel: "A short description of what you want to generate.",
+            type: "String",
+          },
+          {
             input_type: "section_header",
             label: "JSON fields to generate",
           },
@@ -443,25 +449,17 @@ module.exports = {
         user,
         mode,
         configuration: {
-          prompt_field,
-          prompt_formula,
           prompt_template,
+          fields,
+          mulitple,
+          gen_description,
           answer_field,
           override_config,
           chat_history_field,
         },
       }) => {
-        let prompt;
-        if (mode === "workflow")
-          prompt = interpolate(prompt_template, row, user);
-        else if (prompt_field === "Formula" || mode === "workflow")
-          prompt = eval_expression(
-            prompt_formula,
-            row,
-            user,
-            "llm_generate prompt formula"
-          );
-        else prompt = row[prompt_field];
+        let prompt = interpolate(prompt_template, row, user);
+
         const opts = {};
         if (override_config) {
           const altcfg = config.altconfigs.find(
@@ -476,11 +474,39 @@ module.exports = {
         if (chat_history_field && row[chat_history_field]) {
           history = row[chat_history_field];
         }
-        const ans = await getCompletion(config, {
+        const fieldArgs = {};
+        (fields || []).forEach((field) => {
+          fieldArgs[field.name] = {
+            type: field.type,
+            description: field.description,
+          };
+        });
+        const argObj = { type: "object", properties: fieldArgs };
+        const args = {
+          [answer_field]: mulitple ? { type: "array", items: argObj } : argObj,
+        };
+        const expert_function = {
+          type: "function",
+          function: {
+            name: answer_field,
+            description: gen_description || undefined,
+            parameters: {
+              type: "object",
+              properties: args,
+            },
+          },
+        };
+        const toolargs = {
+          tools: [expert_function],
+          tool_choice: { type: "function", function: { name: answer_field } },
+        };
+        const compl = await getCompletion(config, {
           prompt,
           chat: history,
           ...opts,
+          ...toolargs,
         });
+        const ans = JSON.parse(compl.tool_calls[0].function.arguments)[answer_field];
         const upd = { [answer_field]: ans };
         if (chat_history_field) {
           upd[chat_history_field] = [
