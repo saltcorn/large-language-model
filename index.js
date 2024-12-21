@@ -236,8 +236,7 @@ module.exports = {
             },
             ...override_fields,
           ];
-        }
-        if (table) {
+        } else if (table) {
           const textFields = table.fields
             .filter((f) => f.type?.sql_name === "text")
             .map((f) => f.name);
@@ -268,6 +267,175 @@ module.exports = {
             ...override_fields,
           ];
         }
+      },
+      run: async ({
+        row,
+        table,
+        user,
+        mode,
+        configuration: {
+          prompt_field,
+          prompt_formula,
+          prompt_template,
+          answer_field,
+          override_config,
+          chat_history_field,
+        },
+      }) => {
+        let prompt;
+        if (mode === "workflow")
+          prompt = interpolate(prompt_template, row, user);
+        else if (prompt_field === "Formula" || mode === "workflow")
+          prompt = eval_expression(
+            prompt_formula,
+            row,
+            user,
+            "llm_generate prompt formula"
+          );
+        else prompt = row[prompt_field];
+        const opts = {};
+        if (override_config) {
+          const altcfg = config.altconfigs.find(
+            (c) => c.name === override_config
+          );
+          opts.endpoint = altcfg.endpoint;
+          opts.model = altcfg.model;
+          opts.api_key = altcfg.api_key;
+          opts.bearer = altcfg.bearer;
+        }
+        let history = [];
+        if (chat_history_field && row[chat_history_field]) {
+          history = row[chat_history_field];
+        }
+        const ans = await getCompletion(config, {
+          prompt,
+          chat: history,
+          ...opts,
+        });
+        const upd = { [answer_field]: ans };
+        if (chat_history_field) {
+          upd[chat_history_field] = [
+            ...history,
+            { role: "user", content: prompt },
+            { role: "system", content: ans },
+          ];
+        }
+        if (mode === "workflow") return upd;
+        else await table.updateRow(upd, row[table.pk_name]);
+      },
+    },
+    llm_generate_json: {
+      requireRow: true,
+      configFields: ({ table, mode }) => {
+        const override_fields =
+          config.backend === "OpenAI-compatible API" &&
+          (config.altconfigs || []).filter((c) => c.name).length
+            ? [
+                {
+                  name: "override_config",
+                  label: "Alternative LLM configuration",
+                  type: "String",
+                  attributes: { options: config.altconfigs.map((c) => c.name) },
+                },
+              ]
+            : [];
+        const cfgFields = [];
+        const fieldsField = new FieldRepeat({
+          name: "fields",
+          fields: [
+            {
+              name: "name",
+              label: "Name",
+              sublabel: "The field name, as a valid JavaScript identifier",
+              type: "String",
+              required: true,
+            },
+            {
+              label: "Description",
+              name: "description",
+              sublabel: "A description of the field.",
+              type: "String",
+            },
+            {
+              name: "type",
+              label: "Type",
+              type: "String",
+              required: true,
+              attributes: {
+                options: ["string", "integer", "number", "boolean"],
+              },
+            },
+          ],
+        });
+
+        if (mode === "workflow") {
+          cfgFields.push(
+            {
+              name: "prompt_template",
+              label: "Prompt",
+              sublabel:
+                "Prompt text. Use interpolations {{ }} to access variables in the context",
+              type: "String",
+              fieldview: "textarea",
+              required: true,
+            },
+            {
+              name: "answer_field",
+              label: "Answer variable",
+              sublabel: "Set the generated answer to this context variable",
+              type: "String",
+              required: true,
+            },
+            {
+              name: "chat_history_field",
+              label: "Chat history variable",
+              sublabel:
+                "Use this context variable to store the chat history for subsequent prompts",
+              type: "String",
+            }
+          );
+        } else if (table) {
+          const jsonFields = table.fields
+            .filter((f) => f.type?.name === "JSON")
+            .map((f) => f.name);
+
+          cfgFields.push(
+            {
+              name: "prompt_template",
+              label: "Prompt",
+              sublabel:
+                "Prompt text. Use interpolations {{ }} to access variables in the row",
+              type: "String",
+              fieldview: "textarea",
+              required: true,
+            },
+            {
+              name: "answer_field",
+              label: "Answer field",
+              sublabel: "Output field will be set to the generated data",
+              type: "String",
+              required: true,
+              attributes: { options: jsonFields },
+            }
+          );
+        }
+
+        cfgFields.push(
+          ...override_fields,
+          {
+            name: "multiple",
+            label: "Multiple",
+            type: "Bool",
+            sublabel:
+              "Select to generate an array of objects. Unselect for a single object",
+          },
+          {
+            input_type: "section_header",
+            label: "JSON fields to generate",
+          },
+          fieldsField
+        );
+        return cfgFields;
       },
       run: async ({
         row,
