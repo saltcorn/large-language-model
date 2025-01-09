@@ -194,6 +194,7 @@ module.exports = {
   actions: (config) => ({
     llm_function_call: require("./function-insert-action.js")(config),
     llm_generate: {
+      description: "Generate text with AI based on a text prompt",
       requireRow: true,
       configFields: ({ table, mode }) => {
         const override_fields =
@@ -325,6 +326,7 @@ module.exports = {
       },
     },
     llm_generate_json: {
+      description: "Generate JSON with AI based on a text prompt. You must sppecify the JSON fields in the configuration.",
       requireRow: true,
       configFields: ({ table, mode }) => {
         const override_fields =
@@ -427,7 +429,7 @@ module.exports = {
             label: "Multiple",
             type: "Bool",
             sublabel:
-              "Select to generate an array of objects. Unselect for a single object",
+              "Select (true) to generate an array of objects. Unselect (false) for a single object",
           },
           {
             name: "gen_description",
