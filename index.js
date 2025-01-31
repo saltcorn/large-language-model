@@ -318,7 +318,7 @@ module.exports = {
           upd[chat_history_field] = [
             ...history,
             { role: "user", content: prompt },
-            { role: "system", content: ans },
+            { role: "assistant", content: ans },
           ];
         }
         if (mode === "workflow") return upd;
@@ -514,7 +514,7 @@ module.exports = {
           upd[chat_history_field] = [
             ...history,
             { role: "user", content: prompt },
-            { role: "system", content: ans },
+            { role: "assistant", content: ans },
           ];
         }
         if (mode === "workflow") return upd;
