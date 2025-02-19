@@ -174,12 +174,12 @@ const getCompletionOpenAICompatible = async (
     console.log("OpenAI response", JSON.stringify(results, null, 2));
   if (results.error) throw new Error(`OpenAI error: ${results.error.message}`);
 
-  return (
-    results?.choices?.[0]?.message?.content ||
-    (results?.choices?.[0]?.message?.tool_calls
-      ? { tool_calls: results?.choices?.[0]?.message?.tool_calls }
-      : null)
-  );
+  return results?.choices?.[0]?.message?.tool_calls
+    ? {
+        tool_calls: results?.choices?.[0]?.message?.tool_calls,
+        content: results?.choices?.[0]?.message?.content || null,
+      }
+    : results?.choices?.[0]?.message?.content || null;
 };
 
 const getEmbeddingOpenAICompatible = async (
