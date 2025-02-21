@@ -6,6 +6,10 @@ const { getCompletion, getEmbedding } = require("./generate");
 const { OPENAI_MODELS } = require("./constants.js");
 const { eval_expression } = require("@saltcorn/data/models/expression");
 const { interpolate } = require("@saltcorn/data/utils");
+const { getState } = require("@saltcorn/data/db/state");
+const { google } = require("googleapis");
+const fs = require("fs").promises;
+const path = require("path");
 
 const configuration_workflow = () =>
   new Workflow({
@@ -15,6 +19,14 @@ const configuration_workflow = () =>
         form: async (context) => {
           const isRoot = db.getTenantSchema() === db.connectObj.default_schema;
           return new Form({
+            additionalButtons: [
+              {
+                label: "authenticate",
+                onclick:
+                  "location.href='/large-language-model/vertex/authenticate'",
+                class: "btn btn-primary",
+              },
+            ],
             fields: [
               {
                 name: "backend",
@@ -27,8 +39,33 @@ const configuration_workflow = () =>
                     "OpenAI-compatible API",
                     "Local Ollama",
                     ...(isRoot ? ["Local llama.cpp"] : []),
+                    "Google Vertex AI",
                   ],
                 },
+              },
+              {
+                name: "client_id",
+                label: "Client ID",
+                sublabel: "From your Google Cloud account",
+                type: "String",
+                required: true,
+                showIf: { backend: "Google Vertex AI" },
+              },
+              {
+                name: "client_secret",
+                label: "Client Secret",
+                sublabel: "From your Google Cloud account",
+                type: "String",
+                required: true,
+                showIf: { backend: "Google Vertex AI" },
+              },
+              {
+                name: "project_id",
+                label: "Project ID",
+                sublabel: "From your Google Cloud account",
+                type: "String",
+                required: true,
+                showIf: { backend: "Google Vertex AI" },
               },
               {
                 name: "api_key",
@@ -186,11 +223,80 @@ const functions = (config) => {
   };
 };
 
+const routes = (config) => {
+  return [
+    {
+      url: "/large-language-model/vertex/authenticate",
+      method: "get",
+      callback: async (req, res) => {
+        const { client_id, client_secret } = config || {};
+        const baseUrl = (
+          getState().getConfig("base_url") || "http://localhost:3000"
+        ).replace(/\/$/, "");
+        const redirect_uri = `${baseUrl}/large-language-model/vertex/callback`;
+        const oauth2Client = new google.auth.OAuth2(
+          client_id,
+          client_secret,
+          redirect_uri
+        );
+        const authUrl = oauth2Client.generateAuthUrl({
+          access_type: "offline",
+          scope: "https://www.googleapis.com/auth/cloud-platform",
+        });
+        res.redirect(authUrl);
+      },
+    },
+    {
+      url: "/large-language-model/vertex/callback",
+      method: "get",
+      callback: async (req, res) => {
+        const { client_id, client_secret } = config || {};
+        const baseUrl = (
+          getState().getConfig("base_url") || "http://localhost:3000"
+        ).replace(/\/$/, "");
+        const redirect_uri = `${baseUrl}/large-language-model/vertex/callback`;
+        const oauth2Client = new google.auth.OAuth2(
+          client_id,
+          client_secret,
+          redirect_uri
+        );
+        const code = req.query.code;
+        if (!code) {
+          return res.status(400).send("Missing code in query string.");
+        }
+        try {
+          // the first code to token exchange gives a refresh token as well
+          // access tokens expire after 1 hour
+          const { tokens } = await oauth2Client.getToken(code);
+          // TODO store the tokens somewhere else
+          await fs.writeFile(
+            path.join(__dirname, "tokens.json"),
+            JSON.stringify(tokens)
+          );
+          req.flash(
+            "success",
+            req.__("Authentication successful! You can now use Vertex AI.")
+          );
+          res.redirect(
+            `/plugins/configure/${encodeURIComponent(
+              "@saltcorn/large-language-model"
+            )}`
+          );
+        } catch (error) {
+          console.error("Error retrieving access token:", error);
+          res.status(500).send("Authentication failed.");
+        }
+      },
+    },
+  ];
+};
+
 module.exports = {
   sc_plugin_api_version: 1,
   configuration_workflow,
   functions,
   modelpatterns: require("./model.js"),
+  routes,
   actions: (config) => ({
     llm_function_call: require("./function-insert-action.js")(config),
     llm_generate: {
@@ -326,7 +432,8 @@ module.exports = {
       },
     },
     llm_generate_json: {
-      description: "Generate JSON with AI based on a text prompt. You must sppecify the JSON fields in the configuration.",
+      description:
+        "Generate JSON with AI based on a text prompt. You must sppecify the JSON fields in the configuration.",
       requireRow: true,
       configFields: ({ table, mode }) => {
         const override_fields =
@@ -508,7 +615,9 @@ module.exports = {
           ...opts,
           ...toolargs,
         });
-        const ans = JSON.parse(compl.tool_calls[0].function.arguments)[answer_field];
+        const ans = JSON.parse(compl.tool_calls[0].function.arguments)[
+          answer_field
+        ];
         const upd = { [answer_field]: ans };
         if (chat_history_field) {
           upd[chat_history_field] = [

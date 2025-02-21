@@ -2,6 +2,10 @@ const fetch = require("node-fetch");
 const util = require("util");
 const exec = util.promisify(require("child_process").exec);
 const db = require("@saltcorn/data/db");
+const { VertexAI } = require("@google-cloud/vertexai");
+const { google } = require("googleapis");
+const fs = require("fs").promises;
+const path = require("path");
 
 const { features, getState } = require("@saltcorn/data/db/state");
 let ollamaMod;
@@ -117,6 +121,41 @@ const getCompletion = async (config, opts) => {
         { cwd: config.llama_dir }
       );
       return stdout;
+    case "Google Vertex AI":
+      const { client_id, client_secret, project_id } = config || {};
+      const baseUrl = (
+        getState().getConfig("base_url") || "http://localhost:3000"
+      ).replace(/\/$/, "");
+      const redirect_uri = `${baseUrl}/callback`;
+      const oauth2Client = new google.auth.OAuth2(
+        client_id,
+        client_secret,
+        redirect_uri
+      );
+      // TODO get the tokens from the state and refresh after a hour
+      const tokens = JSON.parse(
+        await fs.readFile(path.join(__dirname, "tokens.json"))
+      );
+      oauth2Client.setCredentials(tokens);
+      const vertexAI = new VertexAI({
+        project: project_id,
+        googleAuthOptions: {
+          authClient: oauth2Client,
+        },
+      });
+
+      // TODO cfg parameter
+      const textModel = "gemini-1.5-flash"; // "gemini-1.5-pro";
+      const generativeModel = vertexAI.getGenerativeModel({
+        model: textModel,
+      });
+      const chat = generativeModel.startChat();
+      const result = await chat.sendMessageStream(opts.prompt);
+      const chunks = [];
+      for await (const item of result.stream) {
+        chunks.push(item.candidates[0].content.parts[0].text);
+      }
+      return chunks.join("\n");
     default:
       break;
   }
