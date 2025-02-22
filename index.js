@@ -1,6 +1,7 @@
 const Workflow = require("@saltcorn/data/models/workflow");
 const Form = require("@saltcorn/data/models/form");
 const FieldRepeat = require("@saltcorn/data/models/fieldrepeat");
+const Plugin = require("@saltcorn/data/models/plugin");
 const db = require("@saltcorn/data/db");
 const { getCompletion, getEmbedding } = require("./generate");
 const { OPENAI_MODELS } = require("./constants.js");
@@ -8,8 +9,6 @@ const { eval_expression } = require("@saltcorn/data/models/expression");
 const { interpolate } = require("@saltcorn/data/utils");
 const { getState } = require("@saltcorn/data/db/state");
 const { google } = require("googleapis");
-const fs = require("fs").promises;
-const path = require("path");
 
 const configuration_workflow = () =>
   new Workflow({
@@ -21,7 +20,7 @@ const configuration_workflow = () =>
           return new Form({
             additionalButtons: [
               {
-                label: "authenticate",
+                label: "authorize",
                 onclick:
                   "location.href='/large-language-model/vertex/authenticate'",
                 class: "btn btn-primary",
@@ -133,6 +132,15 @@ const configuration_workflow = () =>
                 showIf: { backend: ["OpenAI-compatible API", "Local Ollama"] },
               },
               {
+                name: "model",
+                label: "Model",
+                type: "String",
+                showIf: { backend: "Google Vertex AI" },
+                attributes: {
+                  options: ["gemini-1.5-pro", "gemini-1.5-flash"],
+                },
+              },
+              {
                 name: "embed_model",
                 label: "Embedding model",
                 type: "String",
@@ -226,7 +234,7 @@ const functions = (config) => {
 const routes = (config) => {
   return [
     {
-      url: "/large-language-model/vertex/authenticate",
+      url: "/large-language-model/vertex/authorize",
       method: "get",
       callback: async (req, res) => {
         const { client_id, client_secret } = config || {};
@@ -265,14 +273,16 @@ const routes = (config) => {
           return res.status(400).send("Missing code in query string.");
         }
         try {
-          // the first code to token exchange gives a refresh token as well
-          // access tokens expire after 1 hour
           const { tokens } = await oauth2Client.getToken(code);
-          // TODO store the tokens somewhere else
-          await fs.writeFile(
-            path.join(__dirname, "tokens.json"),
-            JSON.stringify(tokens)
-          );
+          let plugin = await Plugin.findOne({ name: "large-language-model" });
+          if (!plugin) {
+            plugin = await Plugin.findOne({
+              name: "@saltcorn/large-language-model",
+            });
+          }
+          const newConfig = { ...(plugin.configuration || {}), tokens };
+          plugin.configuration = newConfig;
+          await plugin.upsert();
           req.flash(
             "success",
             req.__("Authentication successful! You can now use Vertex AI.")
