@@ -100,6 +100,40 @@ ${domReady(`
                 required: true,
               },
               {
+                name: "embed_model",
+                label: "Embedding model",
+                type: "String",
+                required: true,
+                showIf: { backend: "Google Vertex AI" },
+                attributes: {
+                  options: [
+                    "text-embedding-005",
+                    "text-embedding-004",
+                    "textembedding-gecko@003",
+                  ],
+                },
+                default: "text-embedding-005",
+              },
+              {
+                name: "embed_task_type",
+                label: "Embedding task type",
+                type: "String",
+                showIf: { backend: "Google Vertex AI" },
+                attributes: {
+                  options: [
+                    "RETRIEVAL_QUERY",
+                    "RETRIEVAL_DOCUMENT",
+                    "SEMANTIC_SIMILARITY",
+                    "CLASSIFICATION",
+                    "CLUSTERING",
+                    "QUESTION_ANSWERING",
+                    "FACT_VERIFICATION",
+                    "CODE_RETRIEVAL_QUERY",
+                  ],
+                },
+                default: "RETRIEVAL_QUERY",
+              },
+              {
                 name: "region",
                 label: "Region",
                 sublabel: "Google Cloud region",

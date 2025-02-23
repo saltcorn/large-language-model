@@ -297,7 +297,7 @@ const getEmbeddingGoogleVertex = async (config, opts, oauth2Client) => {
     apiEndpoint: "us-central1-aiplatform.googleapis.com",
     authClient: oauth2Client,
   });
-  const model = "text-embedding-005"; // fixed for now
+  const model = config.embed_model || "text-embedding-005";
   const [response] = await predClient.predict({
     endpoint: `projects/${config.project_id}/locations/${
       config.region || "us-central1"
@@ -305,7 +305,7 @@ const getEmbeddingGoogleVertex = async (config, opts, oauth2Client) => {
     instances: [
       helpers.toValue({
         content: opts.prompt,
-        task_type: "QUESTION_ANSWERING",
+        task_type: config.task_type || "RETRIEVAL_QUERY",
       }),
     ],
     parameters: {},
