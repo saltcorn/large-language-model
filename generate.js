@@ -298,16 +298,27 @@ const getEmbeddingGoogleVertex = async (config, opts, oauth2Client) => {
     authClient: oauth2Client,
   });
   const model = config.embed_model || "text-embedding-005";
-  const [response] = await predClient.predict({
-    endpoint: `projects/${config.project_id}/locations/${
-      config.region || "us-central1"
-    }/publishers/google/models/${model}`,
-    instances: [
+  let instances = null;
+  if (Array.isArray(opts.prompt)) {
+    instances = opts.prompt.map((p) =>
+      helpers.toValue({
+        content: p,
+        task_type: config.task_type || "RETRIEVAL_QUERY",
+      })
+    );
+  } else {
+    instances = [
       helpers.toValue({
         content: opts.prompt,
         task_type: config.task_type || "RETRIEVAL_QUERY",
       }),
-    ],
+    ];
+  }
+  const [response] = await predClient.predict({
+    endpoint: `projects/${config.project_id}/locations/${
+      config.region || "us-central1"
+    }/publishers/google/models/${model}`,
+    instances,
     // default outputDimensionality is 768, can be changed with:
     // parameters: helpers.toValue({ outputDimensionality: parseInt(512) }),
   });
@@ -317,7 +328,7 @@ const getEmbeddingGoogleVertex = async (config, opts, oauth2Client) => {
     const valuesProto = embeddingsProto.structValue.fields.values;
     return valuesProto.listValue.values.map((v) => v.numberValue);
   });
-  return embeddings[0];
+  return embeddings;
 };
 
 module.exports = { getCompletion, getEmbedding };
