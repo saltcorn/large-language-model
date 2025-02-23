@@ -68,7 +68,7 @@ ${domReady(`
               {
                 name: "client_id",
                 label: "Client ID",
-                sublabel: "From your Google Cloud account",
+                sublabel: "OAuth2 client ID from your Google Cloud account",
                 type: "String",
                 required: true,
                 showIf: { backend: "Google Vertex AI" },
@@ -76,7 +76,7 @@ ${domReady(`
               {
                 name: "client_secret",
                 label: "Client Secret",
-                sublabel: "From your Google Cloud account",
+                sublabel: "Client secret from your Google Cloud account",
                 type: "String",
                 required: true,
                 showIf: { backend: "Google Vertex AI" },
@@ -84,7 +84,7 @@ ${domReady(`
               {
                 name: "project_id",
                 label: "Project ID",
-                sublabel: "From your Google Cloud account",
+                sublabel: "Google Cloud project ID",
                 type: "String",
                 required: true,
                 showIf: { backend: "Google Vertex AI" },
@@ -136,7 +136,7 @@ ${domReady(`
               {
                 name: "region",
                 label: "Region",
-                sublabel: "Google Cloud region",
+                sublabel: "Google Cloud region (default: us-central1)",
                 type: "String",
                 default: "us-central1",
               },
