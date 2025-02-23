@@ -2,6 +2,7 @@ const Workflow = require("@saltcorn/data/models/workflow");
 const Form = require("@saltcorn/data/models/form");
 const FieldRepeat = require("@saltcorn/data/models/fieldrepeat");
 const Plugin = require("@saltcorn/data/models/plugin");
+const { domReady } = require("@saltcorn/markup/tags");
 const db = require("@saltcorn/data/db");
 const { getCompletion, getEmbedding } = require("./generate");
 const { OPENAI_MODELS } = require("./constants.js");
@@ -18,12 +19,33 @@ const configuration_workflow = () =>
         form: async (context) => {
           const isRoot = db.getTenantSchema() === db.connectObj.default_schema;
           return new Form({
+            additionalHeaders: [
+              {
+                headerTag: `<script>
+function backendChange(e) {
+  const val = e.value;
+  const authBtn = document.getElementById('vertex_authorize_btn');
+  if (val === 'Google Vertex AI') {
+    authBtn.classList.remove('d-none');
+  } else {
+    authBtn.classList.add('d-none');
+  }
+}
+${domReady(`
+  const backend = document.getElementById('inputbackend');
+  if (backend) {
+    backendChange(backend);
+  }`)}
+</script>`,
+              },
+            ],
             additionalButtons: [
               {
                 label: "authorize",
+                id: "vertex_authorize_btn",
                 onclick:
-                  "location.href='/large-language-model/vertex/authenticate'",
-                class: "btn btn-primary",
+                  "location.href='/large-language-model/vertex/authorize'",
+                class: "btn btn-primary d-none",
               },
             ],
             fields: [
@@ -40,6 +62,7 @@ const configuration_workflow = () =>
                     ...(isRoot ? ["Local llama.cpp"] : []),
                     "Google Vertex AI",
                   ],
+                  onChange: "backendChange(this)",
                 },
               },
               {
@@ -139,6 +162,7 @@ const configuration_workflow = () =>
                 attributes: {
                   options: ["gemini-1.5-pro", "gemini-1.5-flash"],
                 },
+                required: true,
               },
               {
                 name: "embed_model",
@@ -268,33 +292,37 @@ const routes = (config) => {
           client_secret,
           redirect_uri
         );
-        const code = req.query.code;
-        if (!code) {
-          return res.status(400).send("Missing code in query string.");
+        let plugin = await Plugin.findOne({ name: "large-language-model" });
+        if (!plugin) {
+          plugin = await Plugin.findOne({
+            name: "@saltcorn/large-language-model",
+          });
         }
         try {
+          const code = req.query.code;
+          if (!code) throw new Error("Missing code in query string.");
           const { tokens } = await oauth2Client.getToken(code);
-          let plugin = await Plugin.findOne({ name: "large-language-model" });
-          if (!plugin) {
-            plugin = await Plugin.findOne({
-              name: "@saltcorn/large-language-model",
-            });
+          if (!tokens.refresh_token) {
+            req.flash(
+              "warning",
+              req.__(
+                "No refresh token received. Please revoke the plugin's access and try again."
+              )
+            );
+          } else {
+            const newConfig = { ...(plugin.configuration || {}), tokens };
+            plugin.configuration = newConfig;
+            await plugin.upsert();
+            req.flash(
+              "success",
+              req.__("Authentication successful! You can now use Vertex AI.")
+            );
           }
-          const newConfig = { ...(plugin.configuration || {}), tokens };
-          plugin.configuration = newConfig;
-          await plugin.upsert();
-          req.flash(
-            "success",
-            req.__("Authentication successful! You can now use Vertex AI.")
-          );
-          res.redirect(
-            `/plugins/configure/${encodeURIComponent(
-              "@saltcorn/large-language-model"
-            )}`
-          );
         } catch (error) {
           console.error("Error retrieving access token:", error);
-          res.status(500).send("Authentication failed.");
+          req.flash("error", req.__("Error retrieving access"));
+        } finally {
+          res.redirect(`/plugins/configure/${encodeURIComponent(plugin.name)}`);
         }
       },
     },
