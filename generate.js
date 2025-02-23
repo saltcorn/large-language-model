@@ -275,6 +275,7 @@ const initOAuth2Client = async (config) => {
 const getCompletionGoogleVertex = async (config, opts, oauth2Client) => {
   const vertexAI = new VertexAI({
     project: config.project_id,
+    location: config.region || "us-central1",
     googleAuthOptions: {
       authClient: oauth2Client,
     },
@@ -298,7 +299,9 @@ const getEmbeddingGoogleVertex = async (config, opts, oauth2Client) => {
   });
   const model = "text-embedding-005"; // fixed for now
   const [response] = await predClient.predict({
-    endpoint: `projects/${config.project_id}/locations/us-central1/publishers/google/models/${model}`,
+    endpoint: `projects/${config.project_id}/locations/${
+      config.region || "us-central1"
+    }/publishers/google/models/${model}`,
     instances: [
       helpers.toValue({
         content: opts.prompt,

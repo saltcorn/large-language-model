@@ -90,6 +90,23 @@ ${domReady(`
                 showIf: { backend: "Google Vertex AI" },
               },
               {
+                name: "model",
+                label: "Model",
+                type: "String",
+                showIf: { backend: "Google Vertex AI" },
+                attributes: {
+                  options: ["gemini-1.5-pro", "gemini-1.5-flash"],
+                },
+                required: true,
+              },
+              {
+                name: "region",
+                label: "Region",
+                sublabel: "Google Cloud region",
+                type: "String",
+                default: "us-central1",
+              },
+              {
                 name: "api_key",
                 label: "API key",
                 sublabel: "From your OpenAI account",
@@ -153,16 +170,6 @@ ${domReady(`
                 label: "Model",
                 type: "String",
                 showIf: { backend: ["OpenAI-compatible API", "Local Ollama"] },
-              },
-              {
-                name: "model",
-                label: "Model",
-                type: "String",
-                showIf: { backend: "Google Vertex AI" },
-                attributes: {
-                  options: ["gemini-1.5-pro", "gemini-1.5-flash"],
-                },
-                required: true,
               },
               {
                 name: "embed_model",
