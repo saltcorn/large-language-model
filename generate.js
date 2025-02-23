@@ -289,7 +289,7 @@ const getCompletionGoogleVertex = async (config, opts, oauth2Client) => {
   for await (const item of result.stream) {
     chunks.push(item.candidates[0].content.parts[0].text);
   }
-  return chunks.join("\n");
+  return chunks.join();
 };
 
 const getEmbeddingGoogleVertex = async (config, opts, oauth2Client) => {
@@ -308,7 +308,8 @@ const getEmbeddingGoogleVertex = async (config, opts, oauth2Client) => {
         task_type: config.task_type || "RETRIEVAL_QUERY",
       }),
     ],
-    parameters: {},
+    // default outputDimensionality is 768, can be changed with:
+    // parameters: helpers.toValue({ outputDimensionality: parseInt(512) }),
   });
   const predictions = response.predictions;
   const embeddings = predictions.map((p) => {
