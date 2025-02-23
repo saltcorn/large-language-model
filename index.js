@@ -1,11 +1,15 @@
 const Workflow = require("@saltcorn/data/models/workflow");
 const Form = require("@saltcorn/data/models/form");
 const FieldRepeat = require("@saltcorn/data/models/fieldrepeat");
+const Plugin = require("@saltcorn/data/models/plugin");
+const { domReady } = require("@saltcorn/markup/tags");
 const db = require("@saltcorn/data/db");
 const { getCompletion, getEmbedding } = require("./generate");
 const { OPENAI_MODELS } = require("./constants.js");
 const { eval_expression } = require("@saltcorn/data/models/expression");
 const { interpolate } = require("@saltcorn/data/utils");
+const { getState } = require("@saltcorn/data/db/state");
+const { google } = require("googleapis");
 
 const configuration_workflow = () =>
   new Workflow({
@@ -15,6 +19,35 @@ const configuration_workflow = () =>
         form: async (context) => {
           const isRoot = db.getTenantSchema() === db.connectObj.default_schema;
           return new Form({
+            additionalHeaders: [
+              {
+                headerTag: `<script>
+function backendChange(e) {
+  const val = e.value;
+  const authBtn = document.getElementById('vertex_authorize_btn');
+  if (val === 'Google Vertex AI') {
+    authBtn.classList.remove('d-none');
+  } else {
+    authBtn.classList.add('d-none');
+  }
+}
+${domReady(`
+  const backend = document.getElementById('inputbackend');
+  if (backend) {
+    backendChange(backend);
+  }`)}
+</script>`,
+              },
+            ],
+            additionalButtons: [
+              {
+                label: "authorize",
+                id: "vertex_authorize_btn",
+                onclick:
+                  "location.href='/large-language-model/vertex/authorize'",
+                class: "btn btn-primary d-none",
+              },
+            ],
             fields: [
               {
                 name: "backend",
@@ -27,8 +60,85 @@ const configuration_workflow = () =>
                     "OpenAI-compatible API",
                     "Local Ollama",
                     ...(isRoot ? ["Local llama.cpp"] : []),
+                    "Google Vertex AI",
+                  ],
+                  onChange: "backendChange(this)",
+                },
+              },
+              {
+                name: "client_id",
+                label: "Client ID",
+                sublabel: "OAuth2 client ID from your Google Cloud account",
+                type: "String",
+                required: true,
+                showIf: { backend: "Google Vertex AI" },
+              },
+              {
+                name: "client_secret",
+                label: "Client Secret",
+                sublabel: "Client secret from your Google Cloud account",
+                type: "String",
+                required: true,
+                showIf: { backend: "Google Vertex AI" },
+              },
+              {
+                name: "project_id",
+                label: "Project ID",
+                sublabel: "Google Cloud project ID",
+                type: "String",
+                required: true,
+                showIf: { backend: "Google Vertex AI" },
+              },
+              {
+                name: "model",
+                label: "Model",
+                type: "String",
+                showIf: { backend: "Google Vertex AI" },
+                attributes: {
+                  options: ["gemini-1.5-pro", "gemini-1.5-flash"],
+                },
+                required: true,
+              },
+              {
+                name: "embed_model",
+                label: "Embedding model",
+                type: "String",
+                required: true,
+                showIf: { backend: "Google Vertex AI" },
+                attributes: {
+                  options: [
+                    "text-embedding-005",
+                    "text-embedding-004",
+                    "textembedding-gecko@003",
                   ],
                 },
+                default: "text-embedding-005",
+              },
+              {
+                name: "embed_task_type",
+                label: "Embedding task type",
+                type: "String",
+                showIf: { backend: "Google Vertex AI" },
+                attributes: {
+                  options: [
+                    "RETRIEVAL_QUERY",
+                    "RETRIEVAL_DOCUMENT",
+                    "SEMANTIC_SIMILARITY",
+                    "CLASSIFICATION",
+                    "CLUSTERING",
+                    "QUESTION_ANSWERING",
+                    "FACT_VERIFICATION",
+                    "CODE_RETRIEVAL_QUERY",
+                  ],
+                },
+                default: "RETRIEVAL_QUERY",
+              },
+              {
+                name: "region",
+                label: "Region",
+                sublabel: "Google Cloud region (default: us-central1)",
+                type: "String",
+                default: "us-central1",
               },
               {
                 name: "api_key",
@@ -186,11 +296,86 @@ const functions = (config) => {
   };
 };
 
+const routes = (config) => {
+  return [
+    {
+      url: "/large-language-model/vertex/authorize",
+      method: "get",
+      callback: async (req, res) => {
+        const { client_id, client_secret } = config || {};
+        const baseUrl = (
+          getState().getConfig("base_url") || "http://localhost:3000"
+        ).replace(/\/$/, "");
+        const redirect_uri = `${baseUrl}/large-language-model/vertex/callback`;
+        const oauth2Client = new google.auth.OAuth2(
+          client_id,
+          client_secret,
+          redirect_uri
+        );
+        const authUrl = oauth2Client.generateAuthUrl({
+          access_type: "offline",
+          scope: "https://www.googleapis.com/auth/cloud-platform",
+        });
+        res.redirect(authUrl);
+      },
+    },
+    {
+      url: "/large-language-model/vertex/callback",
+      method: "get",
+      callback: async (req, res) => {
+        const { client_id, client_secret } = config || {};
+        const baseUrl = (
+          getState().getConfig("base_url") || "http://localhost:3000"
+        ).replace(/\/$/, "");
+        const redirect_uri = `${baseUrl}/large-language-model/vertex/callback`;
+        const oauth2Client = new google.auth.OAuth2(
+          client_id,
+          client_secret,
+          redirect_uri
+        );
+        let plugin = await Plugin.findOne({ name: "large-language-model" });
+        if (!plugin) {
+          plugin = await Plugin.findOne({
+            name: "@saltcorn/large-language-model",
+          });
+        }
+        try {
+          const code = req.query.code;
+          if (!code) throw new Error("Missing code in query string.");
+          const { tokens } = await oauth2Client.getToken(code);
+          if (!tokens.refresh_token) {
+            req.flash(
+              "warning",
+              req.__(
+                "No refresh token received. Please revoke the plugin's access and try again."
+              )
+            );
+          } else {
+            const newConfig = { ...(plugin.configuration || {}), tokens };
+            plugin.configuration = newConfig;
+            await plugin.upsert();
+            req.flash(
+              "success",
+              req.__("Authentication successful! You can now use Vertex AI.")
+            );
+          }
+        } catch (error) {
+          console.error("Error retrieving access token:", error);
+          req.flash("error", req.__("Error retrieving access"));
+        } finally {
+          res.redirect(`/plugins/configure/${encodeURIComponent(plugin.name)}`);
+        }
+      },
+    },
+  ];
+};
+
 module.exports = {
   sc_plugin_api_version: 1,
   configuration_workflow,
   functions,
   modelpatterns: require("./model.js"),
+  routes,
   actions: (config) => ({
     llm_function_call: require("./function-insert-action.js")(config),
     llm_generate: {
@@ -326,7 +511,8 @@ module.exports = {
       },
     },
     llm_generate_json: {
-      description: "Generate JSON with AI based on a text prompt. You must sppecify the JSON fields in the configuration.",
+      description:
+        "Generate JSON with AI based on a text prompt. You must sppecify the JSON fields in the configuration.",
       requireRow: true,
       configFields: ({ table, mode }) => {
         const override_fields =
@@ -508,7 +694,9 @@ module.exports = {
           ...opts,
           ...toolargs,
         });
-        const ans = JSON.parse(compl.tool_calls[0].function.arguments)[answer_field];
+        const ans = JSON.parse(compl.tool_calls[0].function.arguments)[
+          answer_field
+        ];
         const upd = { [answer_field]: ans };
         if (chat_history_field) {
           upd[chat_history_field] = [

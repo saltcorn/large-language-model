@@ -2,6 +2,13 @@ const fetch = require("node-fetch");
 const util = require("util");
 const exec = util.promisify(require("child_process").exec);
 const db = require("@saltcorn/data/db");
+const { VertexAI } = require("@google-cloud/vertexai");
+const {
+  PredictionServiceClient,
+  helpers,
+} = require("@google-cloud/aiplatform");
+const { google } = require("googleapis");
+const Plugin = require("@saltcorn/data/models/plugin");
 
 const { features, getState } = require("@saltcorn/data/db/state");
 let ollamaMod;
@@ -57,6 +64,13 @@ const getEmbedding = async (config, opts) => {
         //console.log("embedding response ", olres);
         return olres.embedding;
       }
+    case "Google Vertex AI":
+      const oauth2Client = await initOAuth2Client(config);
+      if (oauth2Client.isTokenExpiring()) {
+        const { credentials } = await oauth2Client.refreshAccessToken();
+        await updatePluginTokenCfg(credentials);
+      }
+      return await getEmbeddingGoogleVertex(config, opts, oauth2Client);
     default:
       throw new Error("Not implemented for this backend");
   }
@@ -117,6 +131,13 @@ const getCompletion = async (config, opts) => {
         { cwd: config.llama_dir }
       );
       return stdout;
+    case "Google Vertex AI":
+      const oauth2Client = await initOAuth2Client(config);
+      if (oauth2Client.isTokenExpiring()) {
+        const { credentials } = await oauth2Client.refreshAccessToken();
+        await updatePluginTokenCfg(credentials);
+      }
+      return await getCompletionGoogleVertex(config, opts, oauth2Client);
     default:
       break;
   }
@@ -211,4 +232,103 @@ const getEmbeddingOpenAICompatible = async (
   if (Array.isArray(prompt)) return results?.data?.map?.((d) => d?.embedding);
   return results?.data?.[0]?.embedding;
 };
+
+const updatePluginTokenCfg = async (credentials) => {
+  let plugin = await Plugin.findOne({ name: "large-language-model" });
+  if (!plugin) {
+    plugin = await Plugin.findOne({
+      name: "@saltcorn/large-language-model",
+    });
+  }
+  const newConfig = {
+    ...(plugin.configuration || {}),
+    tokens: credentials,
+  };
+  plugin.configuration = newConfig;
+  await plugin.upsert();
+  getState().processSend({
+    refresh_plugin_cfg: plugin.name,
+    tenant: db.getTenantSchema(),
+  });
+};
+
+const initOAuth2Client = async (config) => {
+  const { client_id, client_secret } = config || {};
+  const state = getState();
+  const pluginCfg =
+    state.plugin_cfgs.large_language_model ||
+    state.plugin_cfgs["@saltcorn/large-language-model"];
+  const baseUrl = (
+    getState().getConfig("base_url") || "http://localhost:3000"
+  ).replace(/\/$/, "");
+  const redirect_uri = `${baseUrl}/callback`;
+
+  const oauth2Client = new google.auth.OAuth2(
+    client_id,
+    client_secret,
+    redirect_uri
+  );
+  oauth2Client.setCredentials(pluginCfg.tokens);
+  return oauth2Client;
+};
+
+const getCompletionGoogleVertex = async (config, opts, oauth2Client) => {
+  const vertexAI = new VertexAI({
+    project: config.project_id,
+    location: config.region || "us-central1",
+    googleAuthOptions: {
+      authClient: oauth2Client,
+    },
+  });
+  const generativeModel = vertexAI.getGenerativeModel({
+    model: config.model,
+  });
+  const chat = generativeModel.startChat();
+  const result = await chat.sendMessageStream(opts.prompt);
+  const chunks = [];
+  for await (const item of result.stream) {
+    chunks.push(item.candidates[0].content.parts[0].text);
+  }
+  return chunks.join();
+};
+
+const getEmbeddingGoogleVertex = async (config, opts, oauth2Client) => {
+  const predClient = new PredictionServiceClient({
+    apiEndpoint: "us-central1-aiplatform.googleapis.com",
+    authClient: oauth2Client,
+  });
+  const model = config.embed_model || "text-embedding-005";
+  let instances = null;
+  if (Array.isArray(opts.prompt)) {
+    instances = opts.prompt.map((p) =>
+      helpers.toValue({
+        content: p,
+        task_type: config.task_type || "RETRIEVAL_QUERY",
+      })
+    );
+  } else {
+    instances = [
+      helpers.toValue({
+        content: opts.prompt,
+        task_type: config.task_type || "RETRIEVAL_QUERY",
+      }),
+    ];
+  }
+  const [response] = await predClient.predict({
+    endpoint: `projects/${config.project_id}/locations/${
+      config.region || "us-central1"
+    }/publishers/google/models/${model}`,
+    instances,
+    // default outputDimensionality is 768, can be changed with:
+    // parameters: helpers.toValue({ outputDimensionality: parseInt(512) }),
+  });
+  const predictions = response.predictions;
+  const embeddings = predictions.map((p) => {
+    const embeddingsProto = p.structValue.fields.embeddings;
+    const valuesProto = embeddingsProto.structValue.fields.values;
+    return valuesProto.listValue.values.map((v) => v.numberValue);
+  });
+  return embeddings;
+};
+
 module.exports = { getCompletion, getEmbedding };
