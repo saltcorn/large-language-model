@@ -272,6 +272,16 @@ const initOAuth2Client = async (config) => {
   return oauth2Client;
 };
 
+const convertChatToVertex = (chat) => {
+  const history = [];
+  for (const message of chat) {
+    const role = message.role === "user" ? "user" : "model";
+    const parts = [{ text: message.content }];
+    history.push([{ role, parts }]);
+  }
+  return history;
+};
+
 const getCompletionGoogleVertex = async (config, opts, oauth2Client) => {
   const vertexAI = new VertexAI({
     project: config.project_id,
@@ -283,11 +293,14 @@ const getCompletionGoogleVertex = async (config, opts, oauth2Client) => {
   const generativeModel = vertexAI.getGenerativeModel({
     model: config.model,
   });
-  const chat = generativeModel.startChat();
-  const result = await chat.sendMessageStream(opts.prompt);
+  const history = convertChatToVertex(opts.chat);
+  // const { response } = await generativeModel.generateContent(opts.prompt);
+  const { response } = await generativeModel.generateContent({
+    contents: history,
+  });
   const chunks = [];
-  for await (const item of result.stream) {
-    chunks.push(item.candidates[0].content.parts[0].text);
+  for (const candidate of response.candidates) {
+    chunks.push(candidate.content.parts[0].text);
   }
   return chunks.join();
 };
