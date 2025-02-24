@@ -256,7 +256,7 @@ const initOAuth2Client = async (config) => {
   const { client_id, client_secret } = config || {};
   const state = getState();
   const pluginCfg =
-    state.plugin_cfgs.large_language_model ||
+    state.plugin_cfgs["large-language-model"] ||
     state.plugin_cfgs["@saltcorn/large-language-model"];
   const baseUrl = (
     getState().getConfig("base_url") || "http://localhost:3000"
