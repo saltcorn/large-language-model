@@ -292,18 +292,20 @@ const convertChatToVertex = (chat) => {
 const prepFuncArgsFromChat = (fCall) => {
   if (!fCall.arguments) return fCall;
   else {
-    fCall.args = JSON.parse(fCall.arguments);
-    delete fCall.arguments;
-    return fCall;
+    const copy = JSON.parse(JSON.stringify(fCall));
+    copy.args = JSON.parse(copy.arguments);
+    delete copy.arguments;
+    return copy;
   }
 };
 
 const prepFuncArgsForChat = (fCall) => {
   if (!fCall.args) return fCall;
   else {
-    fCall.arguments = JSON.stringify(fCall.args);
-    delete fCall.args;
-    return fCall;
+    const copy = JSON.parse(JSON.stringify(fCall));
+    copy.arguments = JSON.stringify(copy.args);
+    delete copy.args;
+    return copy;
   }
 };
 
@@ -326,7 +328,6 @@ const getCompletionGoogleVertex = async (config, opts, oauth2Client) => {
     ],
     history: convertChatToVertex(opts.chat),
     systemInstructions: opts.systemPrompt || "You are a helpful assistant.",
-    // systemInstructions: "You are a helpful assistant.",
   });
   const { response } = await chat.sendMessage([{ text: opts.prompt }]);
   const parts = response?.candidates?.[0]?.content?.parts;
