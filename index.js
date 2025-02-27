@@ -138,6 +138,7 @@ ${domReady(`
                 label: "Region",
                 sublabel: "Google Cloud region (default: us-central1)",
                 type: "String",
+                showIf: { backend: "Google Vertex AI" },
                 default: "us-central1",
               },
               {

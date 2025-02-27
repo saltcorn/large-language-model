@@ -272,6 +272,43 @@ const initOAuth2Client = async (config) => {
   return oauth2Client;
 };
 
+const convertChatToVertex = (chat) => {
+  const history = [];
+  for (const message of chat) {
+    const role = message.role === "user" ? "user" : "model";
+    if (message.content) {
+      const parts = [{ text: message.content }];
+      history.push([{ role, parts }]);
+    } else if (message.tool_calls) {
+      const parts = [
+        { functionCall: prepFuncArgsFromChat(message.tool_calls[0].function) },
+      ];
+      history.push([{ role, parts }]);
+    }
+  }
+  return history;
+};
+
+const prepFuncArgsFromChat = (fCall) => {
+  if (!fCall.arguments) return fCall;
+  else {
+    const copy = JSON.parse(JSON.stringify(fCall));
+    copy.args = JSON.parse(copy.arguments);
+    delete copy.arguments;
+    return copy;
+  }
+};
+
+const prepFuncArgsForChat = (fCall) => {
+  if (!fCall.args) return fCall;
+  else {
+    const copy = JSON.parse(JSON.stringify(fCall));
+    copy.arguments = JSON.stringify(copy.args);
+    delete copy.args;
+    return copy;
+  }
+};
+
 const getCompletionGoogleVertex = async (config, opts, oauth2Client) => {
   const vertexAI = new VertexAI({
     project: config.project_id,
@@ -283,13 +320,36 @@ const getCompletionGoogleVertex = async (config, opts, oauth2Client) => {
   const generativeModel = vertexAI.getGenerativeModel({
     model: config.model,
   });
-  const chat = generativeModel.startChat();
-  const result = await chat.sendMessageStream(opts.prompt);
-  const chunks = [];
-  for await (const item of result.stream) {
-    chunks.push(item.candidates[0].content.parts[0].text);
+  const chat = generativeModel.startChat({
+    tools: [
+      {
+        functionDeclarations: opts.tools.map((t) => t.function),
+      },
+    ],
+    history: convertChatToVertex(opts.chat),
+    systemInstructions: opts.systemPrompt || "You are a helpful assistant.",
+  });
+  const { response } = await chat.sendMessage([{ text: opts.prompt }]);
+  const parts = response?.candidates?.[0]?.content?.parts;
+  if (!parts) return "";
+  else if (parts.length === 1 && parts[0].text) return parts[0].text;
+  else {
+    const result = {};
+    for (const part of parts) {
+      if (part.functionCall) {
+        const toolCall = {
+          function: prepFuncArgsForChat(part.functionCall),
+        };
+        if (!result.tool_calls) result.tool_calls = [toolCall];
+        else result.tool_calls.push(toolCall);
+      }
+      if (part.text)
+        result.content = !result.content
+          ? part.text
+          : result.content + part.text;
+    }
+    return result;
   }
-  return chunks.join();
 };
 
 const getEmbeddingGoogleVertex = async (config, opts, oauth2Client) => {
