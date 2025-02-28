@@ -316,6 +316,7 @@ const routes = (config) => {
         const authUrl = oauth2Client.generateAuthUrl({
           access_type: "offline",
           scope: "https://www.googleapis.com/auth/cloud-platform",
+          prompt: "consent",
         });
         res.redirect(authUrl);
       },
