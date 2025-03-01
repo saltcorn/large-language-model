@@ -316,6 +316,7 @@ const routes = (config) => {
         const authUrl = oauth2Client.generateAuthUrl({
           access_type: "offline",
           scope: "https://www.googleapis.com/auth/cloud-platform",
+          prompt: "consent",
         });
         res.redirect(authUrl);
       },
@@ -355,6 +356,10 @@ const routes = (config) => {
             const newConfig = { ...(plugin.configuration || {}), tokens };
             plugin.configuration = newConfig;
             await plugin.upsert();
+            getState().processSend({
+              refresh_plugin_cfg: plugin.name,
+              tenant: db.getTenantSchema(),
+            });
             req.flash(
               "success",
               req.__("Authentication successful! You can now use Vertex AI.")

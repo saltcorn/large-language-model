@@ -274,7 +274,7 @@ const initOAuth2Client = async (config) => {
 
 const convertChatToVertex = (chat) => {
   const history = [];
-  for (const message of chat) {
+  for (const message of chat || []) {
     const role = message.role === "user" ? "user" : "model";
     if (message.content) {
       const parts = [{ text: message.content }];
@@ -320,15 +320,20 @@ const getCompletionGoogleVertex = async (config, opts, oauth2Client) => {
   const generativeModel = vertexAI.getGenerativeModel({
     model: config.model,
   });
-  const chat = generativeModel.startChat({
-    tools: [
-      {
-        functionDeclarations: opts.tools.map((t) => t.function),
-      },
-    ],
+  const chatParams = {
     history: convertChatToVertex(opts.chat),
-    systemInstructions: opts.systemPrompt || "You are a helpful assistant.",
-  });
+    systemPrompt: opts.systemPrompt || "You are a helpful assistant.",
+  };
+  if (opts?.tools?.length > 0) {
+    chatParams.tools = [
+      {
+        functionDeclarations: opts.tools.map((t) =>
+          prepFuncArgsForChat(t.function)
+        ),
+      },
+    ];
+  }
+  const chat = generativeModel.startChat(chatParams);
   const { response } = await chat.sendMessage([{ text: opts.prompt }]);
   const parts = response?.candidates?.[0]?.content?.parts;
   if (!parts) return "";
