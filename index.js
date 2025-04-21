@@ -307,6 +307,11 @@ const routes = (config) => {
       url: "/large-language-model/vertex/authorize",
       method: "get",
       callback: async (req, res) => {
+        const role = req?.user?.role_id || 100;
+        if (role > 1) {
+          req.flash("error", req.__("Not authorized"));
+          return res.redirect("/");
+        }
         const { client_id, client_secret } = config || {};
         const baseUrl = (
           getState().getConfig("base_url") || "http://localhost:3000"
@@ -329,6 +334,11 @@ const routes = (config) => {
       url: "/large-language-model/vertex/callback",
       method: "get",
       callback: async (req, res) => {
+        const role = req?.user?.role_id || 100;
+        if (role > 1) {
+          req.flash("error", req.__("Not authorized"));
+          return res.redirect("/");
+        }
         const { client_id, client_secret } = config || {};
         const baseUrl = (
           getState().getConfig("base_url") || "http://localhost:3000"
