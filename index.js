@@ -95,7 +95,11 @@ ${domReady(`
                 type: "String",
                 showIf: { backend: "Google Vertex AI" },
                 attributes: {
-                  options: ["gemini-1.5-pro", "gemini-1.5-flash"],
+                  options: [
+                    "gemini-1.5-pro",
+                    "gemini-1.5-flash",
+                    "gemini-2.0-flash",
+                  ],
                 },
                 required: true,
               },
