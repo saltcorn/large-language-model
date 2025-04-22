@@ -319,10 +319,13 @@ const getCompletionGoogleVertex = async (config, opts, oauth2Client) => {
   });
   const generativeModel = vertexAI.getGenerativeModel({
     model: config.model,
+    systemInstruction: {
+      role: "system",
+      parts: [{ text: opts.systemPrompt || "You are a helpful assistant." }],
+    },
   });
   const chatParams = {
     history: convertChatToVertex(opts.chat),
-    systemPrompt: opts.systemPrompt || "You are a helpful assistant.",
   };
   if (opts?.tools?.length > 0) {
     chatParams.tools = [
