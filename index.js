@@ -104,6 +104,20 @@ ${domReady(`
                 required: true,
               },
               {
+                name: "temperature",
+                label: "Temperature",
+                type: "Float",
+                sublabel:
+                  "Controls the randomness of predictions. Higher values make the output more random.",
+                showIf: { backend: "Google Vertex AI" },
+                default: 0.7,
+                attributes: {
+                  min: 0,
+                  max: 1,
+                  decimal_places: 1,
+                },
+              },
+              {
                 name: "embed_model",
                 label: "Embedding model",
                 type: "String",

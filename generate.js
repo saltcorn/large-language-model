@@ -323,6 +323,9 @@ const getCompletionGoogleVertex = async (config, opts, oauth2Client) => {
       role: "system",
       parts: [{ text: opts.systemPrompt || "You are a helpful assistant." }],
     },
+    generationCon0fig: {
+      temperature: config.temperature || 0.7,
+    },
   });
   const chatParams = {
     history: convertChatToVertex(opts.chat),
