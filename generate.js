@@ -350,6 +350,7 @@ const getCompletionGoogleVertex = async (config, opts, oauth2Client) => {
       if (part.functionCall) {
         const toolCall = {
           function: prepFuncArgsForChat(part.functionCall),
+          id: Math.floor(Math.random() * 1000000),
         };
         if (!result.tool_calls) result.tool_calls = [toolCall];
         else result.tool_calls.push(toolCall);
