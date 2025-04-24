@@ -319,10 +319,16 @@ const getCompletionGoogleVertex = async (config, opts, oauth2Client) => {
   });
   const generativeModel = vertexAI.getGenerativeModel({
     model: config.model,
+    systemInstruction: {
+      role: "system",
+      parts: [{ text: opts.systemPrompt || "You are a helpful assistant." }],
+    },
+    generationCon0fig: {
+      temperature: config.temperature || 0.7,
+    },
   });
   const chatParams = {
     history: convertChatToVertex(opts.chat),
-    systemPrompt: opts.systemPrompt || "You are a helpful assistant.",
   };
   if (opts?.tools?.length > 0) {
     chatParams.tools = [
@@ -344,6 +350,7 @@ const getCompletionGoogleVertex = async (config, opts, oauth2Client) => {
       if (part.functionCall) {
         const toolCall = {
           function: prepFuncArgsForChat(part.functionCall),
+          id: Math.floor(Math.random() * 1000000),
         };
         if (!result.tool_calls) result.tool_calls = [toolCall];
         else result.tool_calls.push(toolCall);
