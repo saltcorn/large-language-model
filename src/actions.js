@@ -7,6 +7,10 @@
  * Author:   Troy Kelly <troy@team.production.city>
  * Updated:  28 Apr 2025
  * Refactor: 28 Apr 2025 (modularised LLM function-call row insert action)
+ * Amended:  30 Apr 2025 – add optional “Response format” JSON override
+ *                         (passed through to openaiV2 as opts.text /
+ *                         opts.output_format so users can request
+ *                         non-text structured outputs)
  */
 
 'use strict';
@@ -86,6 +90,18 @@ function buildActions(config) {
       configFields: ({ table, mode }) => {
         const extra = overrideConfigFields(config);
 
+        /* ---------- common advanced fields (shown in both modes) -------- */
+        const advanced = [
+          {
+            name: 'response_format',
+            label: 'Response format (JSON)',
+            sublabel:
+              'Optional.  Paste a JSON object to request a non-text output format (e.g. json_schema).  Must parse to a JSON object with at least { format: { type } }.',
+            type: 'String',
+            fieldview: 'textarea',
+          },
+        ];
+
         if (mode === 'workflow') {
           return [
             {
@@ -111,6 +127,7 @@ function buildActions(config) {
                 'Use this context variable to store the chat history for subsequent prompts',
               type: 'String',
             },
+            ...advanced,
             ...extra,
           ];
         }
@@ -143,6 +160,7 @@ function buildActions(config) {
             required: true,
             attributes: { options: textFields },
           },
+          ...advanced,
           ...extra,
         ];
       },
@@ -163,6 +181,7 @@ function buildActions(config) {
           answer_field: answerField,
           override_config: overrideConfigName,
           chat_history_field: chatHistoryField,
+          response_format: responseFormatRaw,
         },
       }) => {
         /* ---------------- Build the prompt ----------------------------- */
@@ -197,6 +216,19 @@ function buildActions(config) {
         /** @type {object[]} */
         let history = [];
         if (chatHistoryField && row[chatHistoryField]) history = row[chatHistoryField];
+
+        /* ---------------- Response format override --------------------- */
+        if (responseFormatRaw) {
+          try {
+            const textObj = JSON.parse(responseFormatRaw);
+            if (typeof textObj !== 'object' || !textObj.format) {
+              throw new Error('Format must be an object with a "format" key.');
+            }
+            opts.text = textObj; // openaiV2 will pick this up
+          } catch (e) {
+            throw new Error(`Invalid JSON in “Response format”: ${e.message}`);
+          }
+        }
 
         /* ---------------- Call the LLM -------------------------------- */
         const answer = await getCompletion(config, {
