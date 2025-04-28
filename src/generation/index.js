@@ -5,8 +5,7 @@
  * the call to the correct backend implementation.
  *
  * Author:  Troy Kelly <troy@team.production.city>
- * Updated: 28 Apr 2025
- * Amended: 29 Apr 2025 – delegate “OpenAI” to openaiV2
+ * Updated: 30 Apr 2025 – renamed openai.js → openaiCompatible.js
  */
 
 'use strict';
@@ -15,35 +14,30 @@
 /* Imports                                                                    */
 /* -------------------------------------------------------------------------- */
 
-const openaiV2 = require('./openaiV2');         // ← NEW data-driven client
-const openai    = require('./openai');          // (legacy – used for compatible APIs)
-const ollama    = require('./ollama');
-const llamaCpp  = require('./llamaCpp');
-const vertex    = require('./googleVertex');
+const openaiV2 = require('./openaiV2');
+const openaiCompatible = require('./openaiCompatible');
+const ollama = require('./ollama');
+const llamaCpp = require('./llamaCpp');
+const vertex = require('./googleVertex');
 
 /* -------------------------------------------------------------------------- */
 /* Dispatcher                                                                 */
 /* -------------------------------------------------------------------------- */
 
-/**
- * Return a completion from the configured backend.
- */
 async function getCompletion(cfg, opts) {
   switch (cfg.backend) {
     case 'OpenAI':
-      /* Data-driven path (official API) */
       return openaiV2.getCompletion(
         {
           bearer: opts.api_key ?? cfg.api_key,
           apiKey: opts.api_key ?? undefined,
-          model:  opts.model   ?? cfg.model,
+          model: opts.model ?? cfg.model,
         },
         opts,
       );
 
     case 'OpenAI-compatible API':
-      /* unchanged (still uses manual overrides) */
-      return openai.getCompletion(
+      return openaiCompatible.getCompletion(
         {
           chatCompleteEndpoint: opts.endpoint ?? cfg.endpoint,
           bearer: opts.bearer ?? opts.api_key ?? cfg.bearer_auth,
@@ -67,9 +61,6 @@ async function getCompletion(cfg, opts) {
   }
 }
 
-/**
- * Return an embedding vector from the configured backend.
- */
 async function getEmbedding(cfg, opts) {
   switch (cfg.backend) {
     case 'OpenAI':
@@ -83,7 +74,7 @@ async function getEmbedding(cfg, opts) {
       );
 
     case 'OpenAI-compatible API':
-      return openai.getEmbedding(
+      return openaiCompatible.getEmbedding(
         {
           embeddingsEndpoint: opts.endpoint ?? cfg.embed_endpoint,
           bearer: opts.bearer ?? opts.api_key ?? cfg.bearer_auth,
@@ -95,7 +86,7 @@ async function getEmbedding(cfg, opts) {
 
     case 'Local Ollama':
       if (cfg.embed_endpoint) {
-        return openai.getEmbedding(
+        return openaiCompatible.getEmbedding(
           {
             embeddingsEndpoint: cfg.embed_endpoint,
             embed_model: opts.model ?? cfg.embed_model ?? cfg.model,
