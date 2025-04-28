@@ -792,7 +792,7 @@ const REF_BY_ID = new Map<string, ReferenceModel>(
 );
 
 /* -------------------------------------------------------------------------- */
-/* 3.  Helpers (unchanged)                                                    */
+/* 3.  Helpers                                                                */
 /* -------------------------------------------------------------------------- */
 
 /** Return the reference for an ID or its base if it has a -YYYY-MM-DD suffix. */
@@ -809,17 +809,41 @@ function lookupRef(id: string): ReferenceModel | undefined {
     return undefined;
 }
 
+/**
+ * Classify a model into a top-level category.
+ *
+ * Priority:
+ *   1. Explicit categorisation based on the curated reference catalogue.
+ *   2. Heuristics on the model ID when no catalogue entry is available.
+ */
 function classifyCategory(id: string, ref?: ReferenceModel): string {
+    /* ---------- 1. Reference-driven categorisation ---------- */
+    if (ref) {
+        if (MODEL_REFERENCE.reasoning.includes(ref)) return 'inference';
+        if (MODEL_REFERENCE.chat.includes(ref)) return 'chat';
+        if (MODEL_REFERENCE.embedding.includes(ref)) return 'embedding';
+        if (MODEL_REFERENCE.image.includes(ref)) return 'image';
+    }
+
+    /* ---------- 2. Heuristic fallback ---------- */
     if (id.includes('embedding')) return 'embedding';
-    if (ref) return MODEL_REFERENCE.reasoning.includes(ref) ? 'inference' : 'chat';
     if (id.startsWith('o')) return 'inference';
+    if (/(dall-?e|image)/i.test(id)) return 'image';
     if (id.startsWith('gpt-') || id.includes('chatgpt')) return 'chat';
     if (id.includes('whisper')) return 'audio';
-    if (/(dall-?e|image)/i.test(id)) return 'image';
     return 'completion';
 }
 
+/**
+ * List the parameters the caller can supply when invoking the model.
+ *
+ * Image models defer to their explicit post_parameter definitions when
+ * available; otherwise the previous defaults are preserved.
+ */
 function supportedParams(id: string, ref?: ReferenceModel): readonly string[] {
+    /* Prefer the explicitly curated parameter list for image endpoints. */
+    if (ref?.post_parameters) return Object.keys(ref.post_parameters);
+
     switch (classifyCategory(id, ref)) {
         case 'chat':
             return ['temperature', 'top_p', 'max_output_tokens', 'n', 'stop', 'tools', 'store'];
@@ -863,7 +887,7 @@ const DEFAULT_IMAGE_ENDPOINTS: Endpoints = {
 };
 
 /* -------------------------------------------------------------------------- */
-/* 4.  Builder (unchanged)                                                    */
+/* 4.  Builder                                                                */
 /* -------------------------------------------------------------------------- */
 
 async function build(): Promise<void> {
@@ -891,14 +915,24 @@ async function build(): Promise<void> {
             reasoningRequired: ref?.tokens.reasoning ?? false,
             description: ref?.description,
             docsUrl: ref?.url,
-            modalities: ref?.modalities ?? (isEmbedding ? DEFAULT_EMBEDDING_MODALITIES
-                : isImage ? DEFAULT_IMAGE_MODALITIES
-                    : undefined),
-            endpoints: ref?.endpoints ?? (isEmbedding ? DEFAULT_EMBEDDING_ENDPOINTS
-                : isImage ? DEFAULT_IMAGE_ENDPOINTS
-                    : undefined),
+            modalities:
+                ref?.modalities ??
+                (isEmbedding
+                    ? DEFAULT_EMBEDDING_MODALITIES
+                    : isImage
+                        ? DEFAULT_IMAGE_MODALITIES
+                        : undefined),
+            endpoints:
+                ref?.endpoints ??
+                (isEmbedding
+                    ? DEFAULT_EMBEDDING_ENDPOINTS
+                    : isImage
+                        ? DEFAULT_IMAGE_ENDPOINTS
+                        : undefined),
             features: ref?.features,
             cutoff: ref?.cutoff,
+            /* ---------- new: include image post-parameters when available ---------- */
+            postParameters: ref?.post_parameters,
         };
     });
 
