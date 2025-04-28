@@ -3,20 +3,14 @@
  *
  * Centralised read-only registry for OpenAI models.
  * -------------------------------------------------
- *  • Loads models-openai.json once per process.
- *  • Exposes helpers for model look-ups, listings and endpoint discovery.
+ * • Loads models-openai.json once per process.
+ * • Exposes helpers for model look-ups, listings and endpoint discovery.
+ * • Provides `unknownParams()` so the UI can surface parameters for which
+ *   we do not yet have first-class widgets.
  *
- * Purpose:
- *   All future OpenAI-specific code (configuration workflows, request
- *   builders, validation, etc.) must consult this registry instead of
- *   reaching for models-openai.json directly.  This guarantees a single
- *   source-of-truth and avoids duplicated parsing logic.
- *
- * Author:   Troy Kelly <troy@team.production.city>
- * Created:  29 Apr 2025
- *
- * History:
- *   0.1.0  29 Apr 2025  Initial implementation (registry helpers + caching)
+ * Author:  Troy Kelly <troy@team.production.city>
+ * Created: 29 Apr 2025
+ * Updated: 01 May 2025 – add `unknownParams` helper
  */
 
 'use strict';
@@ -25,7 +19,7 @@
 /* Imports                                                                    */
 /* -------------------------------------------------------------------------- */
 
-const fs = require('fs');
+const fs   = require('fs');
 const path = require('path');
 
 /* -------------------------------------------------------------------------- */
@@ -48,7 +42,7 @@ let _cached = null;
  * Parse and cache the JSON file on first access.
  *
  * @returns {ReadonlyArray<ModelMeta>}
- * @throws {Error} if the JSON file is missing or malformed.
+ * @throws  {Error} when the JSON is missing or malformed.
  */
 function loadAll() {
   if (_cached) return _cached;
@@ -58,16 +52,11 @@ function loadAll() {
   const data = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
 
   if (!Array.isArray(data.models)) {
-    throw new Error('models-openai.json: expected top-level "models" array.');
+    throw new Error('models-openai.json: expected top-level “models” array.');
   }
 
-  // Freeze so callers cannot mutate the cache.
-  _cached = Object.freeze(
-    data.models
-      // Defensive copy + freeze each meta object
-      .map((m) => Object.freeze({ ...m })),
-  );
-
+  /* Freeze array & elements so callers cannot mutate the cache. */
+  _cached = Object.freeze(data.models.map((m) => Object.freeze({ ...m })));
   return _cached;
 }
 
@@ -76,7 +65,7 @@ function loadAll() {
 /* -------------------------------------------------------------------------- */
 
 /**
- * Return an alphabetically sorted list of model IDs.
+ * Alphabetically-sorted list of all model IDs.
  *
  * @returns {string[]}
  */
@@ -89,7 +78,7 @@ function listModels() {
 /**
  * Return full metadata for a given model ID.
  *
- * @param {string} id
+ * @param   {string} id
  * @returns {ModelMeta | undefined}
  */
 function getMeta(id) {
@@ -97,9 +86,9 @@ function getMeta(id) {
 }
 
 /**
- * List every model whose `category` field matches the supplied value.
+ * List every model whose `category` equals `category`.
  *
- * @param {string} category – e.g. "chat", "embedding"
+ * @param   {string} category  e.g. “chat”, “embedding”
  * @returns {ModelMeta[]}
  */
 function listByCategory(category) {
@@ -107,11 +96,11 @@ function listByCategory(category) {
 }
 
 /**
- * Convenience: retrieve the relative endpoint path for an operation.
- * Falls back to undefined if the model does not expose that endpoint.
+ * Convenience – retrieve the relative endpoint path for an operation.
+ * Falls back to `undefined` when the model does not expose that endpoint.
  *
- * @param {string} id
- * @param {'chat'|'responses'|'assistants'|'batch'|'fine_tuning'|'embeddings'} op
+ * @param   {string} id
+ * @param   {'chat'|'responses'|'assistants'|'batch'|'fine_tuning'|'embeddings'} op
  * @returns {string | undefined}
  */
 function endpointFor(id, op) {
@@ -119,8 +108,39 @@ function endpointFor(id, op) {
   return meta?.endpoints?.[op];
 }
 
+/**
+ * Return any `supportedParams` we do not yet provide first-class widgets for.
+ * Used by the configuration UI to decide whether to show the “Advanced JSON”
+ * textarea.
+ *
+ * @param   {ModelMeta} meta
+ * @returns {string[]}  unknown parameter keys
+ */
+function unknownParams(meta) {
+  const KNOWN = new Set([
+    /* chat-ish ----------------------------------------------------------- */
+    'temperature',
+    'top_p',
+    'max_output_tokens',
+    'max_tokens',
+    'n',
+    'stop',
+    'tools',
+    'store',
+    /* embedding ---------------------------------------------------------- */
+    'dimensions',
+    'encoding_format',
+    'user',
+    /* responses ---------------------------------------------------------- */
+    'reasoning.effort',
+    'reasoning.summary',
+  ]);
+
+  return (meta.supportedParams || []).filter((p) => !KNOWN.has(p));
+}
+
 /* -------------------------------------------------------------------------- */
-/* Exports                                                                    */
+/* Module exports                                                             */
 /* -------------------------------------------------------------------------- */
 
 module.exports = {
@@ -128,4 +148,5 @@ module.exports = {
   getMeta,
   listByCategory,
   endpointFor,
+  unknownParams,
 };
