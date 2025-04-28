@@ -2,12 +2,12 @@
  * src/generation/openaiV2.js
  *
  * Data-driven OpenAI client that derives everything (end-point,
- * payload shape, allowed parameters, limits, …) from
+ * payload shapes, allowed parameters, limits, …) from
  * models-openai.json via the registry layer.
  *
  * Author:   Troy Kelly <troy@team.production.city>
  * Created:  29 Apr 2025
- * Updated:  02 May 2025 – add image-generation helper
+ * Updated:  02 May 2025 – add image-generation helper with validation
  */
 
 'use strict';
@@ -16,22 +16,21 @@
 /* Imports                                                                    */
 /* -------------------------------------------------------------------------- */
 
-const fetch    = require('node-fetch');
+const fetch = require('node-fetch');
 const registry = require('../openaiRegistry');
 
 /* -------------------------------------------------------------------------- */
-/* Helpers                                                                    */
+/* Generic helpers – shared across all OpenAI endpoints                       */
 /* -------------------------------------------------------------------------- */
 
 /**
  * Build HTTP headers for OpenAI-style APIs.
  *
- * @param {object} cfg
- * @param {string=} cfg.bearer
- * @param {string=} cfg.apiKey
+ * @param {{ bearer?:string, apiKey?:string }} cfg
  * @returns {Record<string,string>}
  */
 function buildHeaders({ bearer, apiKey }) {
+  /** @type {Record<string,string>} */
   const headers = {
     'Content-Type': 'application/json',
     Accept: 'application/json',
@@ -42,21 +41,21 @@ function buildHeaders({ bearer, apiKey }) {
 }
 
 /**
- * Clamp an integer value to 1…max (if max supplied).
+ * Clamp a number to a min/max range if provided.
  *
  * @param {number|undefined} n
- * @param {number|undefined} max
+ * @param {{min?:number,max?:number}=} range
  * @returns {number|undefined}
  */
-function clamp(n, max) {
+function clamp(n, { min = 1, max } = {}) {
   if (typeof n !== 'number') return undefined;
+  if (typeof min === 'number' && n < min) return min;
   if (typeof max === 'number' && n > max) return max;
-  if (n < 1) return 1;
   return n;
 }
 
 /**
- * Extract only the whitelisted keys from src.
+ * Copy only whitelisted keys from src → out.
  *
  * @param {string[]} whitelist
  * @param {Record<string,unknown>} src
@@ -72,11 +71,16 @@ function pickParams(whitelist, src) {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Payload builders – chat & responses                                        */
+/* Payload builder – /v1/chat/completions                                     */
 /* -------------------------------------------------------------------------- */
 
 /**
- * Build payload for /chat/completions.
+ * Build request body for chat completions.
+ *
+ * @param {string} id
+ * @param {import('../openaiRegistry').ModelMeta} meta
+ * @param {Record<string,unknown>} opts
+ * @returns {Record<string,unknown>}
  */
 function buildChatPayload(id, meta, opts) {
   const sys = opts.systemPrompt ?? 'You are a helpful assistant.';
@@ -93,22 +97,29 @@ function buildChatPayload(id, meta, opts) {
     ...pickParams(meta.supportedParams, opts),
   };
 
-  body.max_output_tokens = clamp(body.max_output_tokens, meta.maxOutputTokens);
+  body.max_output_tokens = clamp(body.max_output_tokens, {
+    max: meta.maxOutputTokens,
+  });
 
   return body;
 }
 
-/**
- * Build payload for /responses  (GPT-4.5, o-series …).
- */
+/* -------------------------------------------------------------------------- */
+/* Payload builder – /v1/responses (o-series, GPT-4.5 …)                      */
+/* -------------------------------------------------------------------------- */
+
 function buildResponsesPayload(id, meta, opts) {
-  /** ---------------- input messages ---------------- */
   const sysRole = meta.reasoningRequired ? 'developer' : 'system';
+
+  /** @type {Array<{role:string,content:Array<{type:string,text:string}>}>} */
   const input = [
     {
       role: sysRole,
       content: [
-        { type: 'input_text', text: opts.systemPrompt ?? 'You are a helpful assistant.' },
+        {
+          type: 'input_text',
+          text: opts.systemPrompt ?? 'You are a helpful assistant.',
+        },
       ],
     },
     ...(opts.chat ?? []).map((m) => ({
@@ -121,43 +132,80 @@ function buildResponsesPayload(id, meta, opts) {
     },
   ];
 
-  /** ---------------- base payload ------------------ */
   /** @type {Record<string,unknown>} */
   const body = {
     model: id,
     input,
-    text: { format: { type: 'text' } }, // default – may be overridden below
+    text: { format: { type: 'text' } },
     tools: opts.tools ?? [],
     store: typeof opts.store === 'boolean' ? opts.store : true,
     ...pickParams(meta.supportedParams, opts),
   };
 
-  /* Optional reasoning block */
-  if (meta.reasoningRequired || opts['reasoning.effort'] || opts['reasoning.summary']) {
+  /* Reasoning block ----------------------------------------------------- */
+  if (
+    meta.reasoningRequired ||
+    opts['reasoning.effort'] ||
+    opts['reasoning.summary']
+  ) {
     body.reasoning = {
       effort: opts['reasoning.effort'] ?? 'auto',
       summary: opts['reasoning.summary'] ?? 'auto',
     };
   }
 
-  /* Allow caller to request a non-text format ---------------------------- */
+  /* Structured / other output formats ---------------------------------- */
   if (opts.text) {
     body.text = opts.text;
   } else if (opts.output_format) {
     body.text = { format: opts.output_format };
   }
 
-  body.max_output_tokens = clamp(body.max_output_tokens, meta.maxOutputTokens);
+  body.max_output_tokens = clamp(body.max_output_tokens, {
+    max: meta.maxOutputTokens,
+  });
 
   return body;
 }
 
 /* -------------------------------------------------------------------------- */
-/* NEW: Payload builder – images/generations                                  */
+/* Image helper – schema-aware validation & building                          */
 /* -------------------------------------------------------------------------- */
 
 /**
- * Build payload for /v1/images/generations.
+ * Throw when a value is not allowed by the model’s postParameters schema.
+ *
+ * @param {string} name
+ * @param {unknown} schema
+ * @param {unknown} value
+ */
+function validatePostValue(name, schema, value) {
+  /* ----------- Enumerated (array or oneOf) ----------------------------- */
+  if (Array.isArray(schema) || Array.isArray(schema?.oneOf)) {
+    const allowed = Array.isArray(schema) ? schema : schema.oneOf;
+    if (!allowed.includes(value)) {
+      throw new Error(
+        `Invalid value for “${name}”. Allowed: ${allowed.join(', ')}`,
+      );
+    }
+    return;
+  }
+
+  /* ----------- Numeric range ------------------------------------------ */
+  if (typeof schema === 'object' && (schema.min !== undefined || schema.max !== undefined)) {
+    const n = Number(value);
+    if (Number.isNaN(n)) throw new Error(`“${name}” must be numeric.`);
+    if (schema.min !== undefined && n < schema.min) {
+      throw new Error(`“${name}” must be ≥ ${schema.min}.`);
+    }
+    if (schema.max !== undefined && n > schema.max) {
+      throw new Error(`“${name}” must be ≤ ${schema.max}.`);
+    }
+  }
+}
+
+/**
+ * Build & validate payload for /v1/images/generations.
  *
  * @param {string} id
  * @param {import('../openaiRegistry').ModelMeta} meta
@@ -165,26 +213,38 @@ function buildResponsesPayload(id, meta, opts) {
  * @returns {Record<string,unknown>}
  */
 function buildImagePayload(id, meta, opts) {
-  /** @type {Record<string,unknown>} */
+  if (!opts.prompt) throw new Error('“prompt” is required.');
+
   const body = {
-    model : id,
+    model: id,
     prompt: opts.prompt,
     ...pickParams(meta.supportedParams, opts),
   };
+
+  /* Validate against postParameters schema ------------------------------ */
+  const schema = meta.postParameters || {};
+  for (const [key, val] of Object.entries(body)) {
+    if (key === 'model' || key === 'prompt') continue;
+    if (!schema[key]) continue; // no schema → accept
+    validatePostValue(key, schema[key], val);
+  }
+
+  /* Clamp numeric n when schema provides range -------------------------- */
+  if (typeof body.n === 'number' && schema.n) {
+    body.n = clamp(body.n, schema.n);
+  }
+
   return body;
 }
 
 /* -------------------------------------------------------------------------- */
-/* Main public API – chat/responses                                           */
+/* Public API – getCompletion (chat / responses)                              */
 /* -------------------------------------------------------------------------- */
 
 /**
  * Chat or responses completion.
  *
- * @param {object} cfg
- *   @param {string=} cfg.bearer   Bearer token for “Authorization” header
- *   @param {string=} cfg.apiKey   api-key header (Azure style)
- *   @param {string=} cfg.model    Fallback model
+ * @param {{ bearer?:string, apiKey?:string, model?:string }} cfg
  * @param {Record<string,unknown>} opts
  * @returns {Promise<string|object>}
  */
@@ -195,7 +255,6 @@ async function getCompletion(cfg, opts) {
   const meta = registry.getMeta(modelId);
   if (!meta) throw new Error(`Unknown OpenAI model “${modelId}”.`);
 
-  /* ---------- endpoint & payload --------------------------------------- */
   const useResponses = !!meta.endpoints?.responses && meta.category !== 'chat';
   const endpointPath = useResponses
     ? meta.endpoints.responses
@@ -206,32 +265,30 @@ async function getCompletion(cfg, opts) {
   }
 
   const url = `https://api.openai.com/${endpointPath}`;
-
   const body = useResponses
     ? buildResponsesPayload(modelId, meta, opts)
     : buildChatPayload(modelId, meta, opts);
 
   if (opts.debugResult) {
-    /* eslint-disable no-console */
+    // eslint-disable-next-line no-console
     console.log('→ OpenAI request', url, JSON.stringify(body, null, 2));
   }
 
-  /* ---------------- HTTP ------------------------------------------------ */
-  const res  = await fetch(url, {
-    method : 'POST',
+  const res = await fetch(url, {
+    method: 'POST',
     headers: buildHeaders(cfg),
-    body   : JSON.stringify(body),
+    body: JSON.stringify(body),
   });
   const json = await res.json();
 
   if (opts.debugResult) {
-    /* eslint-disable no-console */
+    // eslint-disable-next-line no-console
     console.log('← OpenAI response', JSON.stringify(json, null, 2));
   }
 
   if (json.error) throw new Error(`OpenAI error: ${json.error.message}`);
 
-  /* --------------- normalise return shape ------------------------------- */
+  /* Normalise return shape ---------------------------------------------- */
   if (json.choices?.[0]?.message) {
     const m = json.choices[0].message;
     return m.tool_calls
@@ -241,14 +298,16 @@ async function getCompletion(cfg, opts) {
   if (json.candidates?.[0]?.content?.parts) {
     return json.candidates[0].content.parts[0]?.text ?? '';
   }
-
   return '';
 }
 
 /* -------------------------------------------------------------------------- */
-/* Embedding helper                                                           */
+/* Public API – getEmbedding                                                  */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * Embedding helper (payload unchanged, but still metadata-driven).
+ */
 async function getEmbedding(cfg, opts) {
   const modelId = /** @type {string} */ (opts.model ?? cfg.embed_model);
   if (!modelId) throw new Error('No embedding model supplied.');
@@ -264,10 +323,10 @@ async function getEmbedding(cfg, opts) {
     input: opts.prompt,
   };
 
-  const res  = await fetch(url, {
-    method : 'POST',
+  const res = await fetch(url, {
+    method: 'POST',
     headers: buildHeaders(cfg),
-    body   : JSON.stringify(body),
+    body: JSON.stringify(body),
   });
   const json = await res.json();
 
@@ -279,19 +338,15 @@ async function getEmbedding(cfg, opts) {
 }
 
 /* -------------------------------------------------------------------------- */
-/* NEW: Image-generation helper                                               */
+/* Public API – generateImage                                                 */
 /* -------------------------------------------------------------------------- */
 
 /**
  * Generate image(s) via OpenAI Images endpoint.
  *
- * @param {object} cfg
- *   @param {string=} cfg.bearer
- *   @param {string=} cfg.apiKey
- *   @param {string=} cfg.model    – fallback model
+ * @param {{ bearer?:string, apiKey?:string, model?:string }} cfg
  * @param {Record<string,unknown>} opts
- *   – Must include `prompt`. Additional keys forwarded per model spec.
- * @returns {Promise<object>}   Raw JSON response from OpenAI.
+ * @returns {Promise<object>} raw JSON response
  */
 async function generateImage(cfg, opts) {
   const modelId = /** @type {string} */ (opts.model ?? cfg.model);
@@ -301,17 +356,17 @@ async function generateImage(cfg, opts) {
   if (!meta || meta.category !== 'image') {
     throw new Error(`Model “${modelId}” is not an image model.`);
   }
-  if (!opts.prompt) throw new Error('Prompt is required for image generation.');
 
-  const endpointPath = meta.endpoints?.image_generation ?? 'v1/images/generations';
+  const endpointPath =
+    meta.endpoints?.image_generation ?? 'v1/images/generations';
   const url = `https://api.openai.com/${endpointPath}`;
 
   const body = buildImagePayload(modelId, meta, opts);
 
-  const res  = await fetch(url, {
-    method : 'POST',
+  const res = await fetch(url, {
+    method: 'POST',
     headers: buildHeaders(cfg),
-    body   : JSON.stringify(body),
+    body: JSON.stringify(body),
   });
   const json = await res.json();
 
@@ -326,5 +381,5 @@ async function generateImage(cfg, opts) {
 module.exports = {
   getCompletion,
   getEmbedding,
-  generateImage,   // ← NEW
+  generateImage, // ← NEW export
 };
