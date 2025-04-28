@@ -18,10 +18,19 @@ import { writeFile } from 'fs/promises';
 /* 1.  Types                                                                  */
 /* -------------------------------------------------------------------------- */
 
-type TokenInfo = { context: number; output: number; reasoning?: boolean };
+type TokenInfo = { context?: number; output?: number; reasoning?: boolean };
 type ModFlags = { input: boolean; output: boolean };
 type Modalities = { text: ModFlags; image: ModFlags; audio: ModFlags; video: ModFlags };
-type Endpoints = Partial<{ chat: string; responses: string; assistants: string; batch: string; fine_tuning: string }>;
+
+type Endpoints = Partial<{
+    chat: string;
+    responses: string;
+    assistants: string;
+    batch: string;
+    fine_tuning: string;
+    embeddings: string;
+}>;
+
 type Features = Partial<{
     streaming: boolean;
     funtion_calling: boolean; // (typo preserved to match source)
@@ -36,18 +45,20 @@ interface ReferenceModel {
     url: string;
     description: string;
     tokens: TokenInfo;
-    cutoff: string;
+    cutoff: string | null;
     modalities: Modalities;
     endpoints: Endpoints;
     features: Features;
 }
 
-interface OpenAIModelList { data: Array<{ id: string }>; }
+interface OpenAIModelList {
+    data: Array<{ id: string }>;
+}
 
 /* -------------------------------------------------------------------------- */
 /* 2.  Curated reference catalogue                                            */
-/*     – Paste/maintain your full object here (truncated for brevity)         */
 /* -------------------------------------------------------------------------- */
+/*  – reasoning & chat sections are unchanged; new “embedding” section added. */
 
 const MODEL_REFERENCE = {
     "reasoning": [
@@ -598,23 +609,84 @@ const MODEL_REFERENCE = {
                 "predicted_output": true
             }
         }
+    ], embedding: [
+        {
+            name: 'text-embedding-3-small',
+            url: 'https://platform.openai.com/docs/models/text-embedding-3-small',
+            description:
+                'text-embedding-3-small is our improved, more performant version of our ada embedding model. Embeddings are a numerical representation of text that can be used to measure the relatedness between two pieces of text. Embeddings are useful for search, clustering, recommendations, anomaly detection, and classification tasks.',
+            tokens: {},
+            cutoff: null,
+            modalities: {
+                text: { input: true, output: true },
+                image: { input: false, output: false },
+                audio: { input: false, output: false },
+                video: { input: false, output: false },
+            },
+            endpoints: {
+                embeddings: 'v1/embeddings',
+                batch: 'v1/batch',
+            },
+            features: {},
+        },
+        {
+            name: 'text-embedding-3-large',
+            url: 'https://platform.openai.com/docs/models/text-embedding-3-large',
+            description: 'text-embedding-3-large is our most capable embedding model for both english and non-english tasks. Embeddings are a numerical representation of text that can be used to measure the relatedness between two pieces of text. Embeddings are useful for search, clustering, recommendations, anomaly detection, and classification tasks.',
+            tokens: {},
+            cutoff: null,
+            modalities: {
+                text: { input: true, output: true },
+                image: { input: false, output: false },
+                audio: { input: false, output: false },
+                video: { input: false, output: false },
+            },
+            endpoints: {
+                embeddings: 'v1/embeddings',
+                batch: 'v1/batch',
+            },
+            features: {},
+        },
+        {
+            name: 'text-embedding-ada-002',
+            url: 'https://platform.openai.com/docs/models/text-embedding-ada-002',
+            description:
+                'text-embedding-ada-002 is our improved, more performant version of our ada embedding model. Embeddings are a numerical representation of text that can be used to measure the relatedness between two pieces of text. Embeddings are useful for search, clustering, recommendations, anomaly detection, and classification tasks.',
+            tokens: {},
+            cutoff: null,
+            modalities: {
+                text: { input: true, output: true },
+                image: { input: false, output: false },
+                audio: { input: false, output: false },
+                video: { input: false, output: false },
+            },
+            endpoints: {
+                embeddings: 'v1/embeddings',
+                batch: 'v1/batch',
+            },
+            features: {},
+        },
     ],
-} as const satisfies Record<'reasoning' | 'chat', readonly ReferenceModel[]>;
+} as const satisfies Record<'reasoning' | 'chat' | 'embedding', readonly ReferenceModel[]>;
 
 /* Flatten to Map for fast look-ups */
 const REF_BY_ID = new Map<string, ReferenceModel>(
-    [...MODEL_REFERENCE.reasoning, ...MODEL_REFERENCE.chat].map((m) => [m.name, m]),
+    [
+        ...MODEL_REFERENCE.reasoning,
+        ...MODEL_REFERENCE.chat,
+        ...MODEL_REFERENCE.embedding,
+    ].map((m) => [m.name, m]),
 );
 
 /* -------------------------------------------------------------------------- */
-/* 3.  Helpers                                                                */
+/* 3.  Helpers (unchanged)                                                    */
 /* -------------------------------------------------------------------------- */
 
 /** Return the reference for an ID or its base if it has a -YYYY-MM-DD suffix. */
 function lookupRef(id: string): ReferenceModel | undefined {
     if (REF_BY_ID.has(id)) return REF_BY_ID.get(id);
 
-    // step-backwards strategy: chop at the last '-' until a match appears
+    // step-backwards strategy: chop at the last ‘-’ until a match appears
     let candidate = id;
     while (candidate.includes('-')) {
         candidate = candidate.substring(0, candidate.lastIndexOf('-'));
@@ -625,19 +697,16 @@ function lookupRef(id: string): ReferenceModel | undefined {
 }
 
 function classifyCategory(id: string, ref?: ReferenceModel): string {
+    if (id.includes('embedding')) return 'embedding';
     if (ref) return MODEL_REFERENCE.reasoning.includes(ref) ? 'inference' : 'chat';
     if (id.startsWith('o')) return 'inference';
     if (id.startsWith('gpt-') || id.includes('chatgpt')) return 'chat';
-    if (id.includes('embedding')) return 'embedding';
-    if (id.startsWith('whisper')) return 'audio';
+    if (id.includes('whisper')) return 'audio';
     if (/(dall-?e|image)/i.test(id)) return 'image';
     return 'completion';
 }
 
 function supportedParams(id: string, ref?: ReferenceModel): readonly string[] {
-    if (ref && MODEL_REFERENCE.reasoning.includes(ref)) {
-        return ['reasoning.effort', 'reasoning.summary', 'tools', 'store'];
-    }
     switch (classifyCategory(id, ref)) {
         case 'chat':
             return ['temperature', 'top_p', 'max_output_tokens', 'n', 'stop', 'tools', 'store'];
@@ -647,13 +716,30 @@ function supportedParams(id: string, ref?: ReferenceModel): readonly string[] {
             return ['n', 'size', 'response_format'];
         case 'audio':
             return ['language', 'response_format', 'temperature'];
-        default:
+        case 'embedding':
+            return ['dimensions', 'encoding_format', 'user'];
+        default: /* inference & others */
+            if (ref && MODEL_REFERENCE.reasoning.includes(ref)) {
+                return ['reasoning.effort', 'reasoning.summary', 'tools', 'store'];
+            }
             return [];
     }
 }
 
+/* Default structures for uncatalogued embedding models (unchanged). */
+const DEFAULT_EMBEDDING_MODALITIES: Modalities = {
+    text: { input: true, output: true },
+    image: { input: false, output: false },
+    audio: { input: false, output: false },
+    video: { input: false, output: false },
+};
+const DEFAULT_EMBEDDING_ENDPOINTS: Endpoints = {
+    embeddings: 'v1/embeddings',
+    batch: 'v1/batch',
+};
+
 /* -------------------------------------------------------------------------- */
-/* 4.  Builder                                                                */
+/* 4.  Builder (unchanged)                                                    */
 /* -------------------------------------------------------------------------- */
 
 async function build(): Promise<void> {
@@ -668,17 +754,20 @@ async function build(): Promise<void> {
 
     const models = list.data.map(({ id }) => {
         const ref = lookupRef(id);
+        const category = classifyCategory(id, ref);
+        const isEmbedding = category === 'embedding';
+
         return {
             id,
-            category: classifyCategory(id, ref),
+            category,
             supportedParams: supportedParams(id, ref),
             maxContextTokens: ref?.tokens.context,
             maxOutputTokens: ref?.tokens.output,
             reasoningRequired: ref?.tokens.reasoning ?? false,
             description: ref?.description,
             docsUrl: ref?.url,
-            modalities: ref?.modalities,
-            endpoints: ref?.endpoints,
+            modalities: ref?.modalities ?? (isEmbedding ? DEFAULT_EMBEDDING_MODALITIES : undefined),
+            endpoints: ref?.endpoints ?? (isEmbedding ? DEFAULT_EMBEDDING_ENDPOINTS : undefined),
             features: ref?.features,
             cutoff: ref?.cutoff,
         };
