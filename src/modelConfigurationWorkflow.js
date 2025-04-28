@@ -8,6 +8,7 @@
  * Author:   Troy Kelly <troy@team.production.city>
  * Updated:  28 Apr 2025
  * Amended:  29 Apr 2025 – use openaiRegistry for model list
+ * Revised:  05 May 2025 – updated constants import path after relocation
  */
 
 'use strict';
@@ -24,7 +25,7 @@ const os = require('os');
 const path = require('path');
 
 const openaiRegistry = require('./openaiRegistry');
-const { OLLAMA_MODELS_PATH } = require('../constants');
+const { OLLAMA_MODELS_PATH } = require('./constants'); // ← path updated
 
 /* -------------------------------------------------------------------------- */
 /* Helpers                                                                    */
@@ -90,8 +91,8 @@ function createModelConfigurationWorkflow(cfg) {
             const table =
               ctx.table_id || ctx.exttable_name
                 ? await Table.findOne(
-                  ctx.table_id ? { id: ctx.table_id } : { name: ctx.exttable_name }
-                )
+                    ctx.table_id ? { id: ctx.table_id } : { name: ctx.exttable_name }
+                  )
                 : null;
 
             const integerFields = table ? getIntegerFields(table) : [];
@@ -109,23 +110,23 @@ function createModelConfigurationWorkflow(cfg) {
                    */
                   sublabel: table
                     ? `Use handlebars to access fields. Variables in scope: ${table.fields
-                      .map((f) => `<code>${f.name}</code>`)
-                      .join(', ')}`
+                        .map((f) => `<code>${f.name}</code>`)
+                        .join(', ')}`
                     : undefined,
                 },
                 ...(cfg.backend === 'Local llama.cpp'
                   ? [
-                    {
-                      label: 'Num. tokens field',
-                      name: 'ntokens_field',
-                      type: 'String',
-                      attributes: {
-                        options: integerFields.map((f) => f.name),
+                      {
+                        label: 'Num. tokens field',
+                        name: 'ntokens_field',
+                        type: 'String',
+                        attributes: {
+                          options: integerFields.map((f) => f.name),
+                        },
+                        sublabel:
+                          'Override “Num tokens” (instance parameter) with the value in this field.',
                       },
-                      sublabel:
-                        'Override “Num tokens” (instance parameter) with the value in this field.',
-                    },
-                  ]
+                    ]
                   : []),
                 {
                   label: 'Model',
