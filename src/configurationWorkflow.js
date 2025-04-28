@@ -8,6 +8,7 @@
  *
  * Author:   Troy Kelly <troy@team.production.city>
  * Updated:  28 Apr 2025
+ * Amended:  29 Apr 2025 – use openaiRegistry for model list
  */
 
 'use strict';
@@ -21,7 +22,8 @@ const Form = require('@saltcorn/data/models/form');
 const FieldRepeat = require('@saltcorn/data/models/fieldrepeat');
 const { domReady } = require('@saltcorn/markup/tags');
 const db = require('@saltcorn/data/db');
-const { OPENAI_MODELS } = require('../constants.js');
+
+const openaiRegistry = require('./openaiRegistry');
 
 /* -------------------------------------------------------------------------- */
 /* Type-definitions (JSDoc)                                                   */
@@ -241,7 +243,7 @@ ${domReady(`
                   type: 'String',
                   required: true,
                   showIf: { backend: 'OpenAI' },
-                  attributes: { options: OPENAI_MODELS },
+                  attributes: { options: openaiRegistry.listModels() }, // ← updated
                 },
                 {
                   name: 'embed_model',
@@ -250,11 +252,9 @@ ${domReady(`
                   required: true,
                   showIf: { backend: 'OpenAI' },
                   attributes: {
-                    options: [
-                      'text-embedding-3-small',
-                      'text-embedding-3-large',
-                      'text-embedding-ada-002',
-                    ],
+                    options: openaiRegistry
+                      .listByCategory('embedding')
+                      .map((m) => m.id),
                   },
                 },
                 /* ---------- OpenAI-compatible --------------------------------- */
