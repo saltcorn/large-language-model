@@ -29,7 +29,35 @@ type Endpoints = Partial<{
     batch: string;
     fine_tuning: string;
     embeddings: string;
+    image_generation: string;
+    image_edit: string;
 }>;
+
+/* --------------------------- Post-parameter types ------------------------- */
+/**
+ * A single parameter allowed by an image generation model.
+ *
+ * It can be:
+ *   • an enumeration of string literals (e.g. ['png', 'jpeg'])
+ *   • a numeric range (min/max)
+ *   • a constraint specifying a fixed set of acceptable values (oneOf)
+ *   • the sentinel value 'string' when the value is an arbitrary string
+ *
+ * NB: This union gives us strong typing while still accommodating the
+ *     heterogeneous shapes present in the curated catalogue.
+ */
+type EnumConstraint = readonly string[];
+type RangeConstraint = { min?: number; max?: number };
+type OneOfConstraint = { oneOf: readonly (string | number)[] };
+type StringConstraint = 'string';
+
+type PostParameterConstraint =
+    | EnumConstraint
+    | RangeConstraint
+    | OneOfConstraint
+    | StringConstraint;
+
+type PostParameters = Record<string, PostParameterConstraint>;
 
 type Features = Partial<{
     streaming: boolean;
@@ -38,6 +66,7 @@ type Features = Partial<{
     fine_tuning: boolean;
     distillation: boolean;
     predicted_output: boolean;
+    image_inpainting: boolean;
 }>;
 
 interface ReferenceModel {
@@ -49,6 +78,7 @@ interface ReferenceModel {
     modalities: Modalities;
     endpoints: Endpoints;
     features: Features;
+    post_parameters?: PostParameters; // ➟  newly supported for image endpoints
 }
 
 interface OpenAIModelList {
@@ -666,8 +696,90 @@ const MODEL_REFERENCE = {
             },
             features: {},
         },
-    ],
-} as const satisfies Record<'reasoning' | 'chat' | 'embedding', readonly ReferenceModel[]>;
+    ], image: [
+        {
+            name: 'gpt-image-1',
+            url: 'https://platform.openai.com/docs/models/gpt-image-1',
+            description: 'GPT Image 1 is our new state-of-the-art image generation model. It is a natively multimodal language model that accepts both text and image inputs, and produces image outputs.',
+            tokens: {},
+            cutoff: null,
+            modalities: {
+                text: { input: true, output: false },
+                image: { input: true, output: true },
+                audio: { input: false, output: false },
+                video: { input: false, output: false },
+            },
+            endpoints: {
+                image_generation: 'v1/images/generations',
+                image_edit: 'v1/images/edits',
+            },
+            features: {
+                image_inpainting: true,
+            },
+            post_parameters: {
+                background: ['transparent', 'opaque', 'auto'] as const,
+                moderation: ['low', 'auto'] as const,
+                n: { min: 1, max: 10 },
+                output_compression: { min: 0, max: 100 },
+                output_format: ['png', 'jpeg', 'webp'] as const,
+                quality: ['auto', 'high', 'medium', 'low'] as const,
+                size: ['1024x1024', '1536x1024', '1024x1536', 'auto'] as const,
+                user: 'string',
+            }
+        },
+        {
+            name: 'dall-e-3',
+            url: 'https://platform.openai.com/docs/models/dall-e-3',
+            description: 'DALL·E is an AI system that creates realistic images and art from a natural language description. DALL·E 3 currently supports the ability, given a prompt, to create a new image with a specific size.',
+            tokens: {},
+            cutoff: null,
+            modalities: {
+                text: { input: true, output: false },
+                image: { input: false, output: true },
+                audio: { input: false, output: false },
+                video: { input: false, output: false },
+            },
+            endpoints: {
+                image_generation: 'v1/images/generations',
+            },
+            features: {
+            },
+            post_parameters: {
+                n: { oneOf: [1] as const },
+                quality: ['hd', 'standard'] as const,
+                size: ['1024x1024', '1792x1024', '1024x1792'] as const,
+                style: ['vivid', 'natural'] as const,
+                response_format: ['url', 'b64_json'] as const,
+                user: 'string',
+            }
+        },
+        {
+            name: 'dall-e-2',
+            url: 'https://platform.openai.com/docs/models/dall-e-2',
+            description: 'DALL·E is an AI system that creates realistic images and art from a natural language description. Older than DALL·E 3, DALL·E 2 offers more control in prompting and more requests at once.',
+            tokens: {},
+            cutoff: null,
+            modalities: {
+                text: { input: true, output: false },
+                image: { input: false, output: true },
+                audio: { input: false, output: false },
+                video: { input: false, output: false },
+            },
+            endpoints: {
+                image_generation: 'v1/images/generations',
+            },
+            features: {
+            },
+            post_parameters: {
+                n: { min: 1, max: 10 },
+                quality: ['standard'] as const,
+                size: ['256x256', '512x512', '1024x1024'] as const,
+                response_format: ['url', 'b64_json'] as const,
+                user: 'string',
+            }
+        },
+    ]
+} as const satisfies Record<'reasoning' | 'chat' | 'embedding' | 'image', readonly ReferenceModel[]>;
 
 /* Flatten to Map for fast look-ups */
 const REF_BY_ID = new Map<string, ReferenceModel>(
@@ -675,6 +787,7 @@ const REF_BY_ID = new Map<string, ReferenceModel>(
         ...MODEL_REFERENCE.reasoning,
         ...MODEL_REFERENCE.chat,
         ...MODEL_REFERENCE.embedding,
+        ...MODEL_REFERENCE.image,
     ].map((m) => [m.name, m]),
 );
 
@@ -737,6 +850,17 @@ const DEFAULT_EMBEDDING_ENDPOINTS: Endpoints = {
     embeddings: 'v1/embeddings',
     batch: 'v1/batch',
 };
+const DEFAULT_IMAGE_MODALITIES: Modalities = {
+    text: { input: true, output: false },
+    image: { input: true, output: true },
+    audio: { input: false, output: false },
+    video: { input: false, output: false },
+};
+
+const DEFAULT_IMAGE_ENDPOINTS: Endpoints = {
+    image_generation: 'v1/images/generations',
+    image_edit: 'v1/images/edits',
+};
 
 /* -------------------------------------------------------------------------- */
 /* 4.  Builder (unchanged)                                                    */
@@ -756,6 +880,7 @@ async function build(): Promise<void> {
         const ref = lookupRef(id);
         const category = classifyCategory(id, ref);
         const isEmbedding = category === 'embedding';
+        const isImage = category === 'image';
 
         return {
             id,
@@ -766,8 +891,12 @@ async function build(): Promise<void> {
             reasoningRequired: ref?.tokens.reasoning ?? false,
             description: ref?.description,
             docsUrl: ref?.url,
-            modalities: ref?.modalities ?? (isEmbedding ? DEFAULT_EMBEDDING_MODALITIES : undefined),
-            endpoints: ref?.endpoints ?? (isEmbedding ? DEFAULT_EMBEDDING_ENDPOINTS : undefined),
+            modalities: ref?.modalities ?? (isEmbedding ? DEFAULT_EMBEDDING_MODALITIES
+                : isImage ? DEFAULT_IMAGE_MODALITIES
+                    : undefined),
+            endpoints: ref?.endpoints ?? (isEmbedding ? DEFAULT_EMBEDDING_ENDPOINTS
+                : isImage ? DEFAULT_IMAGE_ENDPOINTS
+                    : undefined),
             features: ref?.features,
             cutoff: ref?.cutoff,
         };
