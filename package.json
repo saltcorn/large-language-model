@@ -37,5 +37,8 @@
     "node-fetch": "^3.3.2",
     "ollama": "^0.5.15",
     "underscore": "^1.13.7"
+  },
+  "resolutions": {
+    "nopt": "^8.1.0"
   }
 }
