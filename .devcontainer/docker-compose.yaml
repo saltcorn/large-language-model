@@ -1,0 +1,129 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    volumes:
+      - "/etc/timezone:/etc/timezone:ro"
+      - ../..:/workspaces:cached
+
+    # Overrides default command so things don't shut down after the process ends.
+    command: sleep infinity
+    env_file:
+      - ../.env
+
+  saltcorn:
+    image: saltcorn/saltcorn:latest
+    restart: unless-stopped
+    environment:
+      - TZ=${TZ:-Australia/Sydney}
+      - PGHOST=postgres
+      - PGPORT=5432
+      - PGDATABASE=saltcorn
+      - PGUSER=saltcorn
+      - PGPASSWORD=saltcorn
+      - SALTCORN_MULTI_TENANT=true
+      - SALTCORN_SESSION_SECRET=0000000000000000001
+      - SALTCORN_FILE_STORE=/filestore
+      - SALTCORN_NWORKERS=1
+    volumes:
+      - "/etc/timezone:/etc/timezone:ro"
+      - filestore:/filestore
+      - ../..:/workspaces:cached
+    ports:
+      - "3000:3000"
+    command: "serve"
+    entrypoint:
+      - /bin/sh
+      - -euc
+      - 'PG_WAIT_TIMEOUT=$${PG_WAIT_TIMEOUT:-300}; PG_WAIT_INTERVAL=$${PG_WAIT_INTERVAL:-2}; start=$$(date +%s); until pg_isready -h "$$PGHOST" -p "$$PGPORT" -U "$$PGUSER" >/dev/null 2>&1; do if [ $$(( $$(date +%s) - start )) -ge "$$PG_WAIT_TIMEOUT" ]; then echo "Postgres still unreachable after $${PG_WAIT_TIMEOUT}s — exiting."; exit 1; fi; echo "Waiting for Postgres at $${PGHOST}:$${PGPORT}…"; sleep "$$PG_WAIT_INTERVAL"; done; set -- "$$0" "$$@"; exec /usr/local/bin/saltcorn "$$@"'
+    healthcheck:
+      test:
+        - CMD
+        - python3
+        - -c
+        - |
+          import os, sys, http.client
+          port = int(os.getenv('APP_PORT', '3000'))
+          try:
+              conn = http.client.HTTPConnection('127.0.0.1', port, timeout=3)
+              conn.request('GET', '/')
+              ok = 200 <= conn.getresponse().status < 400
+              sys.exit(0 if ok else 1)
+          except Exception:
+              sys.exit(1)
+      interval: 30s # run every 30 s
+      timeout: 5s # fail if no response in 5 s
+      start_period: 300s # give Saltcorn a moment to boot
+      retries: 3 # marked unhealthy after 3 consecutive failures
+
+  postgres:
+    image: postgis/postgis:${POSTGRES_MAJOR_VERSION:-17}-${POSTGRES_MINOR_VERSION:-3}.${POSTGRES_PATCH_VERSION:-5}
+    stop_grace_period: 600s
+    environment:
+      - POSTGRES_DB=saltcorn
+      - POSTGRES_PASSWORD=saltcorn
+      - POSTGRES_USER=saltcorn
+      - POSTGRES_PORT=5432
+      - PGDATA=/var/lib/postgresql/data/pgdata
+      - PGPASSFILE=/root/.pgpass
+      - POSTGRES_SYNCHRONOUS_COMMIT=on
+      - TZ=${TZ:-Australia/Sydney}
+    entrypoint:
+      - "bash"
+      - "-c"
+      - |
+        apt-get update &&
+        DEBIAN_FRONTEND=noninteractive apt-get install -y apt-transport-https lsb-release curl postgresql-plpython3-$$PG_MAJOR python3-requests postgresql-$$PG_MAJOR-cron &&
+        if [ ! -d "$$PGDATA" ] || [ -z "$$(ls -A "$$PGDATA" 2>/dev/null)" ]; then
+            echo "Initializing database at $${PGDATA}" &&
+            curl -sSL https://raw.githubusercontent.com/saltcorn/saltcorn/refs/heads/master/deploy/examples/test/docker-entrypoint-initdb.sql -o /docker-entrypoint-initdb.d/20_saltcorn.sql &&
+            sed -i -e "s#-- Owner: postgres#-- Owner: $${POSTGRES_USER}#g" -e "s#OWNER TO postgres;#OWNER TO $${POSTGRES_USER};#g" /docker-entrypoint-initdb.d/20_saltcorn.sql
+        else
+            echo "Database already initialized at $${PGDATA}"
+        fi &&
+        echo 'localhost:5432:*:'$$POSTGRES_USER':'$$POSTGRES_PASSWORD > /root/.pgpass &&
+        chown 999 /root/.pgpass &&
+        chmod 0600 /root/.pgpass &&
+        exec docker-entrypoint.sh postgres
+    volumes:
+      - "/etc/timezone:/etc/timezone:ro"
+      - postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", 'PGPASSWORD=$${POSTGRES_PASSWORD} pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB} && PGPASSWORD=$${POSTGRES_PASSWORD} psql -U $${POSTGRES_USER} -d template_postgis -tAc "SELECT 1 FROM pg_extension WHERE extname=''postgis'';" | grep -q 1 || exit 1' ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60m
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=saltcorn@example.com
+      - PGADMIN_ALLOW_SPECIAL_EMAIL_DOMAINS=["local"]
+      - PGADMIN_GLOBALLY_DELIVERABLE=False
+      - PGADMIN_DEFAULT_PASSWORD=saltcorn
+      - PGADMIN_DISABLE_POSTFIX=1
+      - PGADMIN_CONFIG_PROXY_X_FOR_COUNT=1
+      - PGADMIN_CONFIG_PROXY_X_PROTO_COUNT=1
+      - PGADMIN_CONFIG_PROXY_X_HOST_COUNT=1
+      - PGADMIN_CONFIG_PROXY_X_PORT_COUNT=1
+      - PGADMIN_CONFIG_PROXY_X_PREFIX_COUNT=1
+      - PGADMIN_CONFIG_ENHANCED_COOKIE_PROTECTION=True
+      # - PGADMIN_CONFIG_SESSION_DB_PATH="/data/sessions"
+      # - PGADMIN_CONFIG_SQLITE_PATH="/data/pgadmin4.db"
+      # - PGADMIN_SERVER_JSON_FILE="/data/servers.json"
+      # - PGADMIN_PREFERENCES_JSON_FILE="/data/preferences.json"
+      #- PGADMIN_CONFIG_DATA_DIR=/data
+      - TZ=${TZ:-Australia/Sydney}
+    volumes:
+      - "/etc/timezone:/etc/timezone:ro"
+      # - pgadmin:/data:rw
+    ports:
+      - "9080:80"
+
+volumes:
+  postgres:
+  filestore:
+  # pgadmin:

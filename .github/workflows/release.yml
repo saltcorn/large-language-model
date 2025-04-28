@@ -1,0 +1,164 @@
+# -----------------------------------------------------------------------------
+#  GitHub Actions · Publish to GitHub Packages **and** npmjs with Yarn 4 (Corepack)
+#
+#  Trigger:  release → published  (tag must be vX.Y.Z)
+# -----------------------------------------------------------------------------
+
+name: Publish to GitHub Packages and npmjs
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write     # commit version bump
+  packages: write     # publish to GH Packages
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    if: startsWith(github.event.release.tag_name, 'v')
+
+    steps:
+      # -----------------------------------------------------------------------
+      # 1. Checkout (full history so we can push back)
+      # -----------------------------------------------------------------------
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # -----------------------------------------------------------------------
+      # 2. Validate & extract SEMVER from the tag
+      # -----------------------------------------------------------------------
+      - name: Validate tag
+        id: semver
+        run: |
+          TAG="${{ github.event.release.tag_name }}"
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::$TAG is not a valid semver tag (vX.Y.Z expected)"
+            exit 1
+          fi
+          echo "VERSION=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+      # -----------------------------------------------------------------------
+      # 3. Setup Node (registry already pointed at GH Packages)
+      # -----------------------------------------------------------------------
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 23
+          registry-url: https://npm.pkg.github.com
+
+      # -----------------------------------------------------------------------
+      # 4. Enable Corepack & activate the Yarn version declared in package.json
+      # -----------------------------------------------------------------------
+      - name: Activate Yarn 4 via Corepack
+        run: |
+          corepack enable
+          # Use the exact version pinned in package.json → "packageManager": "yarn@x.y.z"
+          YARN_VERSION=$(node -p "require('./package.json').packageManager.split('@')[1]")
+          echo "Using Yarn $YARN_VERSION (from package.json)"
+          corepack prepare "yarn@$YARN_VERSION" --activate
+          yarn --version
+
+      # -----------------------------------------------------------------------
+      # 5. Cache Yarn “offline mirror” (.yarn/cache)
+      # -----------------------------------------------------------------------
+      - name: Restore Yarn cache
+        uses: actions/cache@v4
+        with:
+          path: .yarn/cache
+          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-
+
+      # -----------------------------------------------------------------------
+      # 6. Synchronise package.json version with the release tag
+      # -----------------------------------------------------------------------
+      - name: Bump package.json (if required)
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const pkgPath = 'package.json';
+          const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+          const version = process.env.VERSION;
+
+          if (pkg.version === version) {
+            console.log(`package.json already at ${version}`);
+            process.exit(0);
+          }
+          pkg.version = version;
+          fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n');
+          console.log(`package.json updated → ${version}`);
+          NODE
+        env:
+          VERSION: ${{ steps.semver.outputs.VERSION }}
+
+      - name: Commit & push version bump
+        run: |
+          if git diff --quiet package.json; then
+            echo "No change to commit";
+            exit 0;
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add package.json
+          git commit -m "chore(release): v${VERSION} [skip ci]"
+          git push origin HEAD:${{ github.event.repository.default_branch }}
+        env:
+          VERSION: ${{ steps.semver.outputs.VERSION }}
+
+      # -----------------------------------------------------------------------
+      # 6b. Disable runtime debug logging
+      # -----------------------------------------------------------------------
+      - name: Disable PLUGIN_DEBUG in production build
+        run: |
+          set -euo pipefail
+          # Ensure constants.js exists and replace the debug flag to false
+          if grep -qE "const PLUGIN_DEBUG = true;" src/constants.js; then
+            sed -i -E "s/const PLUGIN_DEBUG = true;/const PLUGIN_DEBUG = false;/" src/constants.js
+            echo "PLUGIN_DEBUG set to false"
+          else
+            echo "PLUGIN_DEBUG already false or not found"
+          fi
+
+      # -----------------------------------------------------------------------
+      # 7. Install dependencies (immutable → enforces yarn.lock)
+      # -----------------------------------------------------------------------
+      - name: Yarn install (immutable)
+        run: yarn install --immutable
+
+      # -----------------------------------------------------------------------
+      # 8. Download public assets
+      # -----------------------------------------------------------------------
+      - name: Populate public assets
+        run: node scripts/populate-public.js
+
+      # -----------------------------------------------------------------------
+      # 9. Publish to GitHub Packages (private scope registry)
+      # -----------------------------------------------------------------------
+      - name: Publish package (GitHub Packages)
+        env:
+          # Auth token for GH Packages
+          YARN_NPM_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Force Yarn’s publish registry — prevents any accidental npmjs push
+          YARN_NPM_REGISTRY_SERVER: https://npm.pkg.github.com
+        run: |
+          # Hard-code the registry for the @productioncity scope
+          yarn config set npmScopes.productioncity.npmRegistryServer "https://npm.pkg.github.com"
+          yarn config set npmScopes.productioncity.npmAlwaysAuth true
+          # Now publish - this goes to GH Packages only
+          yarn npm publish --access public
+
+      # -----------------------------------------------------------------------
+      # 10. Publish to npmjs (which just sucks)
+      # -----------------------------------------------------------------------
+      - name: Publish to npmjs
+        env:
+          YARN_NPM_AUTH_TOKEN: ${{ secrets.NPMJS_PUBLISH_TOKEN }}
+        run: |
+          # Override only the *publish* registry for this scope
+          yarn config set npmScopes.productioncity.npmPublishRegistry "https://registry.npmjs.org"
+          yarn npm publish --access public
