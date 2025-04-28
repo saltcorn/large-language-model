@@ -14,7 +14,7 @@
 /* Imports                                                                    */
 /* -------------------------------------------------------------------------- */
 
-const { getCompletion, getEmbedding } = require('../generate');
+const { getCompletion, getEmbedding } = require('./generation');
 
 /* -------------------------------------------------------------------------- */
 /* Type-definitions (JSDoc)                                                   */

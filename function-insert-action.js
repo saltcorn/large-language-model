@@ -5,7 +5,7 @@ const Field = require("@saltcorn/data/models/field");
 const Table = require("@saltcorn/data/models/table");
 const { getState } = require("@saltcorn/data/db/state");
 const { interpolate } = require("@saltcorn/data/utils");
-const { getCompletion, getEmbedding } = require("./generate");
+const { getCompletion, getEmbedding } = require('./src/generation');
 const { eval_expression } = require("@saltcorn/data/models/expression");
 
 const noSpaces = (s) => s.replaceAll(" ", "");
