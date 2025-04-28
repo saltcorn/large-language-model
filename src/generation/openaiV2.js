@@ -7,8 +7,7 @@
  *
  * Author:   Troy Kelly <troy@team.production.city>
  * Created:  29 Apr 2025
- * Updated:  30 Apr 2025 – allow caller-supplied non-text “format”
- *                         blocks for /responses payloads
+ * Updated:  02 May 2025 – add image-generation helper
  */
 
 'use strict';
@@ -17,7 +16,7 @@
 /* Imports                                                                    */
 /* -------------------------------------------------------------------------- */
 
-const fetch = require('node-fetch');
+const fetch    = require('node-fetch');
 const registry = require('../openaiRegistry');
 
 /* -------------------------------------------------------------------------- */
@@ -33,7 +32,6 @@ const registry = require('../openaiRegistry');
  * @returns {Record<string,string>}
  */
 function buildHeaders({ bearer, apiKey }) {
-  /** @type {Record<string,string>} */
   const headers = {
     'Content-Type': 'application/json',
     Accept: 'application/json',
@@ -74,7 +72,7 @@ function pickParams(whitelist, src) {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Payload builders                                                           */
+/* Payload builders – chat & responses                                        */
 /* -------------------------------------------------------------------------- */
 
 /**
@@ -155,7 +153,29 @@ function buildResponsesPayload(id, meta, opts) {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Main public API                                                            */
+/* NEW: Payload builder – images/generations                                  */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Build payload for /v1/images/generations.
+ *
+ * @param {string} id
+ * @param {import('../openaiRegistry').ModelMeta} meta
+ * @param {Record<string,unknown>} opts
+ * @returns {Record<string,unknown>}
+ */
+function buildImagePayload(id, meta, opts) {
+  /** @type {Record<string,unknown>} */
+  const body = {
+    model : id,
+    prompt: opts.prompt,
+    ...pickParams(meta.supportedParams, opts),
+  };
+  return body;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Main public API – chat/responses                                           */
 /* -------------------------------------------------------------------------- */
 
 /**
@@ -166,8 +186,6 @@ function buildResponsesPayload(id, meta, opts) {
  *   @param {string=} cfg.apiKey   api-key header (Azure style)
  *   @param {string=} cfg.model    Fallback model
  * @param {Record<string,unknown>} opts
- *   – recognised keys include prompt, chat, systemPrompt, temperature,  
- *     'reasoning.effort', 'reasoning.summary', tools, text, output_format …
  * @returns {Promise<string|object>}
  */
 async function getCompletion(cfg, opts) {
@@ -199,10 +217,10 @@ async function getCompletion(cfg, opts) {
   }
 
   /* ---------------- HTTP ------------------------------------------------ */
-  const res = await fetch(url, {
-    method: 'POST',
+  const res  = await fetch(url, {
+    method : 'POST',
     headers: buildHeaders(cfg),
-    body: JSON.stringify(body),
+    body   : JSON.stringify(body),
   });
   const json = await res.json();
 
@@ -227,9 +245,10 @@ async function getCompletion(cfg, opts) {
   return '';
 }
 
-/**
- * Embedding helper (payload unchanged, but metadata-driven).
- */
+/* -------------------------------------------------------------------------- */
+/* Embedding helper                                                           */
+/* -------------------------------------------------------------------------- */
+
 async function getEmbedding(cfg, opts) {
   const modelId = /** @type {string} */ (opts.model ?? cfg.embed_model);
   if (!modelId) throw new Error('No embedding model supplied.');
@@ -245,10 +264,10 @@ async function getEmbedding(cfg, opts) {
     input: opts.prompt,
   };
 
-  const res = await fetch(url, {
-    method: 'POST',
+  const res  = await fetch(url, {
+    method : 'POST',
     headers: buildHeaders(cfg),
-    body: JSON.stringify(body),
+    body   : JSON.stringify(body),
   });
   const json = await res.json();
 
@@ -260,7 +279,52 @@ async function getEmbedding(cfg, opts) {
 }
 
 /* -------------------------------------------------------------------------- */
+/* NEW: Image-generation helper                                               */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Generate image(s) via OpenAI Images endpoint.
+ *
+ * @param {object} cfg
+ *   @param {string=} cfg.bearer
+ *   @param {string=} cfg.apiKey
+ *   @param {string=} cfg.model    – fallback model
+ * @param {Record<string,unknown>} opts
+ *   – Must include `prompt`. Additional keys forwarded per model spec.
+ * @returns {Promise<object>}   Raw JSON response from OpenAI.
+ */
+async function generateImage(cfg, opts) {
+  const modelId = /** @type {string} */ (opts.model ?? cfg.model);
+  if (!modelId) throw new Error('No OpenAI image model supplied.');
+
+  const meta = registry.getMeta(modelId);
+  if (!meta || meta.category !== 'image') {
+    throw new Error(`Model “${modelId}” is not an image model.`);
+  }
+  if (!opts.prompt) throw new Error('Prompt is required for image generation.');
+
+  const endpointPath = meta.endpoints?.image_generation ?? 'v1/images/generations';
+  const url = `https://api.openai.com/${endpointPath}`;
+
+  const body = buildImagePayload(modelId, meta, opts);
+
+  const res  = await fetch(url, {
+    method : 'POST',
+    headers: buildHeaders(cfg),
+    body   : JSON.stringify(body),
+  });
+  const json = await res.json();
+
+  if (json.error) throw new Error(`OpenAI error: ${json.error.message}`);
+  return json;
+}
+
+/* -------------------------------------------------------------------------- */
 /* Exports                                                                    */
 /* -------------------------------------------------------------------------- */
 
-module.exports = { getCompletion, getEmbedding };
+module.exports = {
+  getCompletion,
+  getEmbedding,
+  generateImage,   // ← NEW
+};
