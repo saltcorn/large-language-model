@@ -18,7 +18,7 @@ const createConfigurationWorkflow = require('./configurationWorkflow');
 const buildFunctions = require('./llmFunctions');
 const buildRoutes = require('./routes');
 const buildActions = require('./actions');
-const modelpatterns = require('../model.js');
+const buildModelPatterns = require('./modelPatterns');
 
 /* -------------------------------------------------------------------------- */
 /* Plug-in API                                                                */
@@ -35,7 +35,7 @@ module.exports = {
 
   routes: (config) => buildRoutes(config),
 
-  modelpatterns,
+  modelpatterns: (config) => buildModelPatterns(config),
 
   actions: (config) => buildActions(config),
 };
