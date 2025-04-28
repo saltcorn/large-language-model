@@ -7,6 +7,8 @@
  *
  * Author:   Troy Kelly <troy@team.production.city>
  * Created:  29 Apr 2025
+ * Updated:  30 Apr 2025 – allow caller-supplied non-text “format”
+ *                         blocks for /responses payloads
  */
 
 'use strict';
@@ -37,7 +39,7 @@ function buildHeaders({ bearer, apiKey }) {
     Accept: 'application/json',
   };
   if (bearer) headers.Authorization = `Bearer ${bearer}`;
-  if (apiKey) headers['api-key'] = apiKey; // Azure‐style header
+  if (apiKey) headers['api-key'] = apiKey; // Azure header style
   return headers;
 }
 
@@ -56,7 +58,7 @@ function clamp(n, max) {
 }
 
 /**
- * Extract only the whitelisted keys from opts.
+ * Extract only the whitelisted keys from src.
  *
  * @param {string[]} whitelist
  * @param {Record<string,unknown>} src
@@ -93,11 +95,7 @@ function buildChatPayload(id, meta, opts) {
     ...pickParams(meta.supportedParams, opts),
   };
 
-  // Numeric bounds
-  body.max_output_tokens = clamp(
-    body.max_output_tokens,
-    meta.maxOutputTokens,
-  );
+  body.max_output_tokens = clamp(body.max_output_tokens, meta.maxOutputTokens);
 
   return body;
 }
@@ -106,12 +104,14 @@ function buildChatPayload(id, meta, opts) {
  * Build payload for /responses  (GPT-4.5, o-series …).
  */
 function buildResponsesPayload(id, meta, opts) {
-  /** build the “input” array */
+  /** ---------------- input messages ---------------- */
   const sysRole = meta.reasoningRequired ? 'developer' : 'system';
   const input = [
     {
       role: sysRole,
-      content: [{ type: 'input_text', text: opts.systemPrompt ?? 'You are a helpful assistant.' }],
+      content: [
+        { type: 'input_text', text: opts.systemPrompt ?? 'You are a helpful assistant.' },
+      ],
     },
     ...(opts.chat ?? []).map((m) => ({
       role: m.role,
@@ -123,22 +123,30 @@ function buildResponsesPayload(id, meta, opts) {
     },
   ];
 
+  /** ---------------- base payload ------------------ */
   /** @type {Record<string,unknown>} */
   const body = {
     model: id,
     input,
-    text: { format: { type: 'text' } },
+    text: { format: { type: 'text' } }, // default – may be overridden below
     tools: opts.tools ?? [],
     store: typeof opts.store === 'boolean' ? opts.store : true,
     ...pickParams(meta.supportedParams, opts),
   };
 
-  // Reasoning section if required / supplied
+  /* Optional reasoning block */
   if (meta.reasoningRequired || opts['reasoning.effort'] || opts['reasoning.summary']) {
     body.reasoning = {
       effort: opts['reasoning.effort'] ?? 'auto',
       summary: opts['reasoning.summary'] ?? 'auto',
     };
+  }
+
+  /* Allow caller to request a non-text format ---------------------------- */
+  if (opts.text) {
+    body.text = opts.text;
+  } else if (opts.output_format) {
+    body.text = { format: opts.output_format };
   }
 
   body.max_output_tokens = clamp(body.max_output_tokens, meta.maxOutputTokens);
@@ -153,11 +161,13 @@ function buildResponsesPayload(id, meta, opts) {
 /**
  * Chat or responses completion.
  *
- * @param {object} cfg          Secret / per-Call configuration.
- * @param {string=} cfg.bearer  → Authorization: Bearer …
- * @param {string=} cfg.apiKey  → api-key header (Azure)
- * @param {string=} cfg.model   Default model if opts.model missing
+ * @param {object} cfg
+ *   @param {string=} cfg.bearer   Bearer token for “Authorization” header
+ *   @param {string=} cfg.apiKey   api-key header (Azure style)
+ *   @param {string=} cfg.model    Fallback model
  * @param {Record<string,unknown>} opts
+ *   – recognised keys include prompt, chat, systemPrompt, temperature,  
+ *     'reasoning.effort', 'reasoning.summary', tools, text, output_format …
  * @returns {Promise<string|object>}
  */
 async function getCompletion(cfg, opts) {
@@ -167,27 +177,28 @@ async function getCompletion(cfg, opts) {
   const meta = registry.getMeta(modelId);
   if (!meta) throw new Error(`Unknown OpenAI model “${modelId}”.`);
 
-  /* Decide endpoint & payload builder */
+  /* ---------- endpoint & payload --------------------------------------- */
   const useResponses = !!meta.endpoints?.responses && meta.category !== 'chat';
   const endpointPath = useResponses
     ? meta.endpoints.responses
     : meta.endpoints.chat;
+
   if (!endpointPath) {
     throw new Error(`Model “${modelId}” does not expose a usable endpoint.`);
   }
 
   const url = `https://api.openai.com/${endpointPath}`;
 
-  const body =
-    useResponses
-      ? buildResponsesPayload(modelId, meta, opts)
-      : buildChatPayload(modelId, meta, opts);
+  const body = useResponses
+    ? buildResponsesPayload(modelId, meta, opts)
+    : buildChatPayload(modelId, meta, opts);
 
   if (opts.debugResult) {
     /* eslint-disable no-console */
     console.log('→ OpenAI request', url, JSON.stringify(body, null, 2));
   }
 
+  /* ---------------- HTTP ------------------------------------------------ */
   const res = await fetch(url, {
     method: 'POST',
     headers: buildHeaders(cfg),
@@ -202,13 +213,14 @@ async function getCompletion(cfg, opts) {
 
   if (json.error) throw new Error(`OpenAI error: ${json.error.message}`);
 
-  /* Normalise: keep legacy return shapes */
+  /* --------------- normalise return shape ------------------------------- */
   if (json.choices?.[0]?.message) {
     const m = json.choices[0].message;
-    return m.tool_calls ? { tool_calls: m.tool_calls, content: m.content ?? null } : m.content ?? '';
+    return m.tool_calls
+      ? { tool_calls: m.tool_calls, content: m.content ?? null }
+      : m.content ?? '';
   }
   if (json.candidates?.[0]?.content?.parts) {
-    // /responses returns a slightly different wrapper
     return json.candidates[0].content.parts[0]?.text ?? '';
   }
 
@@ -216,7 +228,7 @@ async function getCompletion(cfg, opts) {
 }
 
 /**
- * Embedding helper (unchanged payload-wise – but now data-driven).
+ * Embedding helper (payload unchanged, but metadata-driven).
  */
 async function getEmbedding(cfg, opts) {
   const modelId = /** @type {string} */ (opts.model ?? cfg.embed_model);
