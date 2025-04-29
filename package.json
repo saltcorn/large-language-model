@@ -27,7 +27,8 @@
     }
   },
   "resolutions": {
-    "nopt": "^8.1.0"
+    "nopt": "^8.1.0",
+    "node-gyp": "8.4.1"
   },
   "devDependencies": {
     "@saltcorn/data": "^1.1.4",
