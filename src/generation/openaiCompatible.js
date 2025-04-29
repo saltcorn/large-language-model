@@ -7,7 +7,7 @@
  * when `node-fetch` is `require`d directly.
  *
  * Author:   Troy Kelly <troy@team.production.city>
- * Updated:  12 May 2025 – dynamic fetch resolver
+ * Updated:  29 April 2025 – dynamic fetch resolver
  */
 
 'use strict';
