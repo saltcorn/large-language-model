@@ -3,10 +3,6 @@
   "version": "0.0.1",
   "description": "Large language models and functionality for Saltcorn",
   "main": "index.js",
-  "devDependencies": {
-    "@saltcorn/data": "^1.1.4",
-    "@saltcorn/types": "^1.1.4-beta.9"
-  },
   "author": "Tom Nielsen",
   "license": "MIT",
   "repository": "github:productioncity/saltcorn-large-language-model",
@@ -32,6 +28,10 @@
   },
   "resolutions": {
     "nopt": "^8.1.0"
+  },
+  "devDependencies": {
+    "@saltcorn/data": "^1.1.4",
+    "@saltcorn/types": "^1.1.4"
   },
   "dependencies": {
     "@google-cloud/aiplatform": "^4.1.0",
