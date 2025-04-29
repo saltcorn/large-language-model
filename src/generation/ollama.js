@@ -1,33 +1,52 @@
 /**
- * src/generation/ollama.js
+ * @fileoverview
+ * Local Ollama completions & embeddings.  The upstream `ollama` NPM package is
+ * **ES-module only**; attempting to `require()` it in a CommonJS context causes
+ * a runtime failure.  This revision loads the module dynamically with
+ * `import()` and therefore works under both Node 16 (CJS) and Node ≥ 18.
  *
- * Local Ollama completions & embeddings.
- *
- * Author:  Troy Kelly <troy@team.production.city>
- * Updated: 28 Apr 2025
+ * Author:   Troy Kelly <troy@team.production.city>
+ * Updated:  29 April 2025 – dynamic ESM loading
  */
 
 'use strict';
 
+/* -------------------------------------------------------------------------- */
+/* Imports                                                                    */
+/* -------------------------------------------------------------------------- */
+
 const { getState } = require('@saltcorn/data/db/state');
 
-let Ollama;
+/* -------------------------------------------------------------------------- */
+/* Lazy loader for the ESM-only `ollama` package                              */
+/* -------------------------------------------------------------------------- */
+
 /**
- * Lazy-load the ESM-only `ollama` package.
+ * Cached constructor reference.
  *
- * @throws {Error} if ESM plug-ins are disabled.
- * @returns {import('ollama').Ollama}
+ * @type {typeof import('ollama').Ollama | undefined}
  */
-function lazyLoadOllama() {
-  if (!Ollama) {
+let OllamaCtor;
+
+/**
+ * Dynamically import the `ollama` module when first required.
+ *
+ * @throws {Error} If Saltcorn’s `esm_plugins` feature flag is disabled.
+ * @returns {Promise<import('ollama').Ollama>} Instantiated client.
+ */
+async function loadOllama() {
+  if (!OllamaCtor) {
     const { features } = getState();
-    if (!features.esm_plugins) {
-      throw new Error('Ollama requires “esm_plugins” feature.');
+    if (!features?.esm_plugins) {
+      throw new Error('Ollama backend requires Saltcorn feature flag “esm_plugins”.');
     }
-    // eslint-disable-next-line global-require
-    ({ Ollama } = require('ollama'));
+
+    // Dynamic import sidesteps the CommonJS ⇒ ESM loader error.
+    const mod = await import('ollama');
+    OllamaCtor = mod.Ollama;
   }
-  return new Ollama();
+
+  return new OllamaCtor();
 }
 
 /* -------------------------------------------------------------------------- */
@@ -37,12 +56,12 @@ function lazyLoadOllama() {
 /**
  * Generate text using the local Ollama server.
  *
- * @param {object} cfg – plug-in configuration
- * @param {object} opts – generation options forwarded to Ollama
+ * @param {object} _cfg  Plug-in configuration (unused at present).
+ * @param {object} opts  Options forwarded to Ollama.
  * @returns {Promise<string>}
  */
 async function getCompletion(_cfg, opts) {
-  const client = lazyLoadOllama();
+  const client = await loadOllama();
   const { response } = await client.generate({
     model: opts.model,
     ...opts,
@@ -53,14 +72,14 @@ async function getCompletion(_cfg, opts) {
 /**
  * Obtain an embedding vector from Ollama.
  *
- * @param {object} _cfg – plug-in configuration
+ * @param {object} _cfg  Plug-in configuration (unused).
  * @param {object} opts
  * @param {string} opts.prompt
  * @param {string=} opts.model
  * @returns {Promise<number[]>}
  */
 async function getEmbedding(_cfg, opts) {
-  const client = lazyLoadOllama();
+  const client = await loadOllama();
   const { embedding } = await client.embeddings({
     model: opts.model,
     prompt: opts.prompt,

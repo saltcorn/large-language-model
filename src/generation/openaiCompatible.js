@@ -1,34 +1,38 @@
 /**
- * src/generation/openaiCompatible.js
+ * @fileoverview
+ * OpenAI-compatible completions & embeddings (Azure OpenAI, local replicas,
+ * FastChat, etc.).  The module now resolves its `fetch` implementation
+ * dynamically to maintain compatibility with both Node 16 (CommonJS) and
+ * Node ≥ 18 (global fetch) without triggering the ESM loading error that occurs
+ * when `node-fetch` is `require`d directly.
  *
- * OpenAI-compatible completions & embeddings (Azure-style, local
- * OpenAI-compatible servers, etc.).  This module retains the original
- * “openai.js” logic but is now clearly labelled as the **compatible**
- * API path so it is not confused with the first-party, data-driven
- * implementation in openaiV2.js.
- *
- * Author:  Troy Kelly <troy@team.production.city>
- * Created: 30 Apr 2025  (renamed from openai.js)
+ * Author:   Troy Kelly <troy@team.production.city>
+ * Updated:  12 May 2025 – dynamic fetch resolver
  */
 
 'use strict';
 
-const fetch = require('node-fetch');
+/* -------------------------------------------------------------------------- */
+/* Imports                                                                    */
+/* -------------------------------------------------------------------------- */
+
+const getFetch = require('../utils/getFetch'); // Path is relative to /src/generation
 
 /* -------------------------------------------------------------------------- */
-/* Helpers                                                                    */
+/* Helper ­functions                                                          */
 /* -------------------------------------------------------------------------- */
 
 /**
  * Build HTTP headers for OpenAI-style compatible APIs.
  *
  * @param {object} cfg
- * @param {string=} cfg.bearer
- * @param {string=} cfg.apiKey
- * @returns {Record<string,string>}
+ * @param {string=} cfg.bearer  Bearer-token value (sent in `Authorization`)
+ * @param {string=} cfg.apiKey  Some providers (e.g. Azure OpenAI) expect this
+ *                              as `api-key` header instead.
+ * @returns {Record<string, string>}
  */
 function buildHeaders({ bearer, apiKey }) {
-  /** @type {Record<string,string>} */
+  /** @type {Record<string, string>} */
   const headers = {
     'Content-Type': 'application/json',
     Accept: 'application/json',
@@ -39,18 +43,22 @@ function buildHeaders({ bearer, apiKey }) {
 }
 
 /**
- * Decide whether the response contains a tool-call payload.
+ * Normalise the heterogeneous response shapes returned by various compatible
+ * back-ends.
  *
- * @param {any} body
- * @returns {string|object}
+ * @param {*} body Parsed JSON body.
+ * @returns {string | object}
+ * @throws {Error} When the server reports an error.
  */
 function normaliseChatResponse(body) {
-  if (body.error) {
+  if (body?.error) {
     throw new Error(`OpenAI-compatible error: ${body.error.message}`);
   }
 
   const message = body?.choices?.[0]?.message;
-  if (!message) return '';
+  if (!message) {
+    return '';
+  }
 
   return message.tool_calls
     ? { tool_calls: message.tool_calls, content: message.content ?? null }
@@ -62,9 +70,19 @@ function normaliseChatResponse(body) {
 /* -------------------------------------------------------------------------- */
 
 /**
- * Call the Chat Completions endpoint.
+ * Chat completions endpoint.
+ *
+ * @param {object} cfg
+ * @param {string}   cfg.chatCompleteEndpoint Absolute URL of the chat endpoint.
+ * @param {string=}  cfg.bearer               Bearer token.
+ * @param {string=}  cfg.apiKey               API-key header (Azure style).
+ * @param {string=}  cfg.model                Default model ID.
+ * @param {object}   opts                     User-supplied options / overrides.
+ * @returns {Promise<string | object>}
  */
 async function getCompletion(cfg, opts) {
+  const fetch = await getFetch();
+
   const {
     chatCompleteEndpoint,
     bearer,
@@ -81,8 +99,9 @@ async function getCompletion(cfg, opts) {
     ...rest
   } = opts;
 
+  /** @type {Record<string, unknown>} */
   const reqBody = {
-    model: rest.model || defaultModel,
+    model: rest.model ?? defaultModel,
     messages: [
       { role: 'system', content: systemPrompt ?? 'You are a helpful assistant.' },
       ...chat,
@@ -93,34 +112,46 @@ async function getCompletion(cfg, opts) {
   };
 
   if (debugResult) {
-    /* eslint-disable no-console */
+    // eslint-disable-next-line no-console
     console.log(
-      'OpenAI-compatible request',
-      JSON.stringify(reqBody, null, 2),
-      '→',
+      'OpenAI-compatible request →',
       chatCompleteEndpoint,
+      JSON.stringify(reqBody, null, 2),
     );
   }
 
-  const res = await fetch(chatCompleteEndpoint, {
-    method: 'POST',
+  const res  = await fetch(chatCompleteEndpoint, {
+    method : 'POST',
     headers: buildHeaders({ bearer, apiKey }),
-    body: JSON.stringify(reqBody),
+    body   : JSON.stringify(reqBody),
   });
   const body = await res.json();
 
   if (debugResult) {
-    /* eslint-disable no-console */
-    console.log('OpenAI-compatible response', JSON.stringify(body, null, 2));
+    // eslint-disable-next-line no-console
+    console.log('OpenAI-compatible response ←', JSON.stringify(body, null, 2));
   }
 
   return normaliseChatResponse(body);
 }
 
 /**
- * Call the Embeddings endpoint.
+ * Embeddings endpoint.
+ *
+ * @param {object} cfg
+ * @param {string}   cfg.embeddingsEndpoint Absolute URL of the embeddings route.
+ * @param {string=}  cfg.bearer             Bearer token.
+ * @param {string=}  cfg.apiKey             API-key header (Azure style).
+ * @param {string=}  cfg.embed_model        Default embedding model ID.
+ * @param {object}   opts
+ * @param {string|string[]} opts.prompt     Input(s) to embed.
+ * @param {string=}        opts.model       Override model.
+ * @param {boolean=}       opts.debugResult Enable console logging.
+ * @returns {Promise<number[] | number[][]>}
  */
 async function getEmbedding(cfg, opts) {
+  const fetch = await getFetch();
+
   const {
     embeddingsEndpoint,
     bearer,
@@ -130,24 +161,36 @@ async function getEmbedding(cfg, opts) {
 
   const { prompt, model, debugResult } = opts;
 
-  const resBody = {
+  /** @type {Record<string, unknown>} */
+  const reqBody = {
     model: model ?? defaultModel ?? 'text-embedding-3-small',
     input: prompt,
   };
 
-  const res = await fetch(embeddingsEndpoint, {
-    method: 'POST',
+  if (debugResult) {
+    // eslint-disable-next-line no-console
+    console.log(
+      'OpenAI-compatible (embeddings) request →',
+      embeddingsEndpoint,
+      JSON.stringify(reqBody, null, 2),
+    );
+  }
+
+  const res  = await fetch(embeddingsEndpoint, {
+    method : 'POST',
     headers: buildHeaders({ bearer, apiKey }),
-    body: JSON.stringify(resBody),
+    body   : JSON.stringify(reqBody),
   });
   const body = await res.json();
 
   if (debugResult) {
-    /* eslint-disable no-console */
-    console.log('OpenAI-compatible response', JSON.stringify(body, null, 2));
+    // eslint-disable-next-line no-console
+    console.log('OpenAI-compatible (embeddings) response ←', JSON.stringify(body, null, 2));
   }
 
-  if (body.error) throw new Error(`OpenAI-compatible error: ${body.error.message}`);
+  if (body?.error) {
+    throw new Error(`OpenAI-compatible error: ${body.error.message}`);
+  }
 
   return Array.isArray(prompt)
     ? body?.data?.map((d) => d?.embedding)

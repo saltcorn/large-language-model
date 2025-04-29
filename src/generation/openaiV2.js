@@ -1,13 +1,13 @@
 /**
- * src/generation/openaiV2.js
- *
- * Data-driven OpenAI client that derives everything (end-point,
- * payload shapes, allowed parameters, limits, …) from
- * models-openai.json via the registry layer.
+ * @fileoverview
+ * First-party OpenAI REST client driven by `models-openai.json`.  All network
+ * calls are now executed through a dynamic fetch resolver so the plug-in can be
+ * loaded on Node versions with or without a global `fetch` implementation
+ * (avoids static `require('node-fetch')` which breaks under CommonJS).
  *
  * Author:   Troy Kelly <troy@team.production.city>
  * Created:  28 Apr 2025
- * Updated:  28 Apr 2025 – add image-generation helper with validation
+ * Updated:  12 May 2025 – dynamic fetch resolver
  */
 
 'use strict';
@@ -16,7 +16,7 @@
 /* Imports                                                                    */
 /* -------------------------------------------------------------------------- */
 
-const fetch = require('node-fetch');
+const getFetch = require('../utils/getFetch');
 const registry = require('../openaiRegistry');
 
 /* -------------------------------------------------------------------------- */
@@ -24,27 +24,27 @@ const registry = require('../openaiRegistry');
 /* -------------------------------------------------------------------------- */
 
 /**
- * Build HTTP headers for OpenAI-style APIs.
+ * Build HTTP headers for OpenAI REST calls.
  *
- * @param {{ bearer?:string, apiKey?:string }} cfg
- * @returns {Record<string,string>}
+ * @param {{ bearer?: string, apiKey?: string }} cfg
+ * @returns {Record<string, string>}
  */
 function buildHeaders({ bearer, apiKey }) {
-  /** @type {Record<string,string>} */
+  /** @type {Record<string, string>} */
   const headers = {
     'Content-Type': 'application/json',
     Accept: 'application/json',
   };
   if (bearer) headers.Authorization = `Bearer ${bearer}`;
-  if (apiKey) headers['api-key'] = apiKey; // Azure header style
+  if (apiKey) headers['api-key'] = apiKey; // Azure-style header
   return headers;
 }
 
 /**
- * Clamp a number to a min/max range if provided.
+ * Clamp a numeric value to a range.
  *
  * @param {number|undefined} n
- * @param {{min?:number,max?:number}=} range
+ * @param {{min?: number, max?: number}=} range
  * @returns {number|undefined}
  */
 function clamp(n, { min = 1, max } = {}) {
@@ -55,17 +55,19 @@ function clamp(n, { min = 1, max } = {}) {
 }
 
 /**
- * Copy only whitelisted keys from src → out.
+ * Pick only the whitelisted keys from an object.
  *
- * @param {string[]} whitelist
- * @param {Record<string,unknown>} src
- * @returns {Record<string,unknown>}
+ * @param {ReadonlyArray<string>} whitelist
+ * @param {Record<string, unknown>} src
+ * @returns {Record<string, unknown>}
  */
 function pickParams(whitelist, src) {
-  /** @type {Record<string,unknown>} */
+  /** @type {Record<string, unknown>} */
   const out = {};
   for (const key of whitelist) {
-    if (typeof src[key] !== 'undefined') out[key] = src[key];
+    if (Object.prototype.hasOwnProperty.call(src, key) && src[key] !== undefined) {
+      out[key] = src[key];
+    }
   }
   return out;
 }
@@ -75,12 +77,12 @@ function pickParams(whitelist, src) {
 /* -------------------------------------------------------------------------- */
 
 /**
- * Build request body for chat completions.
+ * Assemble a request body for `/v1/chat/completions`.
  *
  * @param {string} id
  * @param {import('../openaiRegistry').ModelMeta} meta
- * @param {Record<string,unknown>} opts
- * @returns {Record<string,unknown>}
+ * @param {Record<string, unknown>} opts
+ * @returns {Record<string, unknown>}
  */
 function buildChatPayload(id, meta, opts) {
   const sys = opts.systemPrompt ?? 'You are a helpful assistant.';
@@ -90,7 +92,7 @@ function buildChatPayload(id, meta, opts) {
     { role: 'user', content: opts.prompt },
   ];
 
-  /** @type {Record<string,unknown>} */
+  /** @type {Record<string, unknown>} */
   const body = {
     model: id,
     messages,
@@ -105,56 +107,52 @@ function buildChatPayload(id, meta, opts) {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Payload builder – /v1/responses (o-series, GPT-4.5 …)                      */
+/* Payload builder – /v1/responses (o-series, GPT-4.5 etc.)                   */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * Assemble a request body for `/v1/responses`.
+ *
+ * @param {string} id
+ * @param {import('../openaiRegistry').ModelMeta} meta
+ * @param {Record<string, unknown>} opts
+ * @returns {Record<string, unknown>}
+ */
 function buildResponsesPayload(id, meta, opts) {
   const sysRole = meta.reasoningRequired ? 'developer' : 'system';
 
-  /** @type {Array<{role:string,content:Array<{type:string,text:string}>}>} */
+  /** @type {Array<{role: string, content: Array<{type: string, text: string}>}>} */
   const input = [
     {
       role: sysRole,
-      content: [
-        {
-          type: 'input_text',
-          text: opts.systemPrompt ?? 'You are a helpful assistant.',
-        },
-      ],
+      content: [{ type: 'input_text', text: opts.systemPrompt ?? 'You are a helpful assistant.' }],
     },
     ...(opts.chat ?? []).map((m) => ({
       role: m.role,
       content: [{ type: 'input_text', text: m.content }],
     })),
-    {
-      role: 'user',
-      content: [{ type: 'input_text', text: opts.prompt }],
-    },
+    { role: 'user', content: [{ type: 'input_text', text: opts.prompt }] },
   ];
 
-  /** @type {Record<string,unknown>} */
+  /** @type {Record<string, unknown>} */
   const body = {
     model: id,
     input,
-    text: { format: { type: 'text' } },
+    text : { format: { type: 'text' } },
     tools: opts.tools ?? [],
     store: typeof opts.store === 'boolean' ? opts.store : true,
     ...pickParams(meta.supportedParams, opts),
   };
 
   /* Reasoning block ----------------------------------------------------- */
-  if (
-    meta.reasoningRequired ||
-    opts['reasoning.effort'] ||
-    opts['reasoning.summary']
-  ) {
+  if (meta.reasoningRequired || opts['reasoning.effort'] || opts['reasoning.summary']) {
     body.reasoning = {
-      effort: opts['reasoning.effort'] ?? 'auto',
+      effort : opts['reasoning.effort'] ?? 'auto',
       summary: opts['reasoning.summary'] ?? 'auto',
     };
   }
 
-  /* Structured / other output formats ---------------------------------- */
+  /* Structured output --------------------------------------------------- */
   if (opts.text) {
     body.text = opts.text;
   } else if (opts.output_format) {
@@ -173,28 +171,29 @@ function buildResponsesPayload(id, meta, opts) {
 /* -------------------------------------------------------------------------- */
 
 /**
- * Throw when a value is not allowed by the model’s postParameters schema.
+ * Validate a post parameter value against the model's schema.
  *
- * @param {string} name
- * @param {unknown} schema
- * @param {unknown} value
+ * @param {string}  name    Parameter key.
+ * @param {*}       schema  Definition from `postParameters`.
+ * @param {*}       value   Value to validate.
+ * @throws {Error}  On validation failure.
  */
 function validatePostValue(name, schema, value) {
-  /* ----------- Enumerated (array or oneOf) ----------------------------- */
+  /* Enumerations -------------------------------------------------------- */
   if (Array.isArray(schema) || Array.isArray(schema?.oneOf)) {
     const allowed = Array.isArray(schema) ? schema : schema.oneOf;
     if (!allowed.includes(value)) {
-      throw new Error(
-        `Invalid value for “${name}”. Allowed: ${allowed.join(', ')}`,
-      );
+      throw new Error(`Invalid value for “${name}”. Allowed: ${allowed.join(', ')}`);
     }
     return;
   }
 
-  /* ----------- Numeric range ------------------------------------------ */
+  /* Numeric range ------------------------------------------------------- */
   if (typeof schema === 'object' && (schema.min !== undefined || schema.max !== undefined)) {
     const n = Number(value);
-    if (Number.isNaN(n)) throw new Error(`“${name}” must be numeric.`);
+    if (Number.isNaN(n)) {
+      throw new Error(`“${name}” must be numeric.`);
+    }
     if (schema.min !== undefined && n < schema.min) {
       throw new Error(`“${name}” must be ≥ ${schema.min}.`);
     }
@@ -205,31 +204,34 @@ function validatePostValue(name, schema, value) {
 }
 
 /**
- * Build & validate payload for /v1/images/generations.
+ * Assemble a request body for `/v1/images/generations`.
  *
  * @param {string} id
  * @param {import('../openaiRegistry').ModelMeta} meta
- * @param {Record<string,unknown>} opts
- * @returns {Record<string,unknown>}
+ * @param {Record<string, unknown>} opts
+ * @returns {Record<string, unknown>}
  */
 function buildImagePayload(id, meta, opts) {
-  if (!opts.prompt) throw new Error('“prompt” is required.');
+  if (!opts.prompt) {
+    throw new Error('“prompt” is required for image generation.');
+  }
 
+  /** @type {Record<string, unknown>} */
   const body = {
-    model: id,
+    model : id,
     prompt: opts.prompt,
     ...pickParams(meta.supportedParams, opts),
   };
 
-  /* Validate against postParameters schema ------------------------------ */
-  const schema = meta.postParameters || {};
+  /* Validate ------------------------------------------------------------ */
+  const schema = meta.postParameters ?? {};
   for (const [key, val] of Object.entries(body)) {
     if (key === 'model' || key === 'prompt') continue;
-    if (!schema[key]) continue; // no schema → accept
+    if (!schema[key]) continue; // Not governed by schema
     validatePostValue(key, schema[key], val);
   }
 
-  /* Clamp numeric n when schema provides range -------------------------- */
+  /* Clamp numeric n when schema defines range --------------------------- */
   if (typeof body.n === 'number' && schema.n) {
     body.n = clamp(body.n, schema.n);
   }
@@ -242,29 +244,29 @@ function buildImagePayload(id, meta, opts) {
 /* -------------------------------------------------------------------------- */
 
 /**
- * Chat or responses completion.
+ * Obtain a chat or responses completion from the OpenAI REST API.
  *
- * @param {{ bearer?:string, apiKey?:string, model?:string }} cfg
- * @param {Record<string,unknown>} opts
- * @returns {Promise<string|object>}
+ * @param {{ bearer?: string, apiKey?: string, model?: string }} cfg
+ * @param {Record<string, unknown>} opts
+ * @returns {Promise<string | object>}
  */
 async function getCompletion(cfg, opts) {
+  const fetch = await getFetch();
+
   const modelId = /** @type {string} */ (opts.model ?? cfg.model);
   if (!modelId) throw new Error('No OpenAI model supplied.');
 
   const meta = registry.getMeta(modelId);
   if (!meta) throw new Error(`Unknown OpenAI model “${modelId}”.`);
 
-  const useResponses = !!meta.endpoints?.responses && meta.category !== 'chat';
-  const endpointPath = useResponses
-    ? meta.endpoints.responses
-    : meta.endpoints.chat;
+  const useResponses = Boolean(meta.endpoints?.responses && meta.category !== 'chat');
+  const endpointPath = useResponses ? meta.endpoints.responses : meta.endpoints.chat;
 
   if (!endpointPath) {
     throw new Error(`Model “${modelId}” does not expose a usable endpoint.`);
   }
 
-  const url = `https://api.openai.com/${endpointPath}`;
+  const url  = `https://api.openai.com/${endpointPath}`;
   const body = useResponses
     ? buildResponsesPayload(modelId, meta, opts)
     : buildChatPayload(modelId, meta, opts);
@@ -274,10 +276,10 @@ async function getCompletion(cfg, opts) {
     console.log('→ OpenAI request', url, JSON.stringify(body, null, 2));
   }
 
-  const res = await fetch(url, {
-    method: 'POST',
+  const res  = await fetch(url, {
+    method : 'POST',
     headers: buildHeaders(cfg),
-    body: JSON.stringify(body),
+    body   : JSON.stringify(body),
   });
   const json = await res.json();
 
@@ -286,18 +288,20 @@ async function getCompletion(cfg, opts) {
     console.log('← OpenAI response', JSON.stringify(json, null, 2));
   }
 
-  if (json.error) throw new Error(`OpenAI error: ${json.error.message}`);
+  if (json?.error) throw new Error(`OpenAI error: ${json.error.message}`);
 
   /* Normalise return shape ---------------------------------------------- */
-  if (json.choices?.[0]?.message) {
+  if (json?.choices?.[0]?.message) {
     const m = json.choices[0].message;
     return m.tool_calls
       ? { tool_calls: m.tool_calls, content: m.content ?? null }
       : m.content ?? '';
   }
-  if (json.candidates?.[0]?.content?.parts) {
+
+  if (json?.candidates?.[0]?.content?.parts) {
     return json.candidates[0].content.parts[0]?.text ?? '';
   }
+
   return '';
 }
 
@@ -306,9 +310,15 @@ async function getCompletion(cfg, opts) {
 /* -------------------------------------------------------------------------- */
 
 /**
- * Embedding helper (payload unchanged, but still metadata-driven).
+ * Obtain an embedding vector from the OpenAI REST API.
+ *
+ * @param {{ bearer?: string, apiKey?: string, embed_model?: string }} cfg
+ * @param {Record<string, unknown>} opts
+ * @returns {Promise<number[] | number[][]>}
  */
 async function getEmbedding(cfg, opts) {
+  const fetch = await getFetch();
+
   const modelId = /** @type {string} */ (opts.model ?? cfg.embed_model);
   if (!modelId) throw new Error('No embedding model supplied.');
 
@@ -316,21 +326,21 @@ async function getEmbedding(cfg, opts) {
   if (!meta) throw new Error(`Unknown OpenAI model “${modelId}”.`);
 
   const endpointPath = meta.endpoints?.embeddings ?? 'v1/embeddings';
-  const url = `https://api.openai.com/${endpointPath}`;
+  const url          = `https://api.openai.com/${endpointPath}`;
 
   const body = {
     model: modelId,
     input: opts.prompt,
   };
 
-  const res = await fetch(url, {
-    method: 'POST',
+  const res  = await fetch(url, {
+    method : 'POST',
     headers: buildHeaders(cfg),
-    body: JSON.stringify(body),
+    body   : JSON.stringify(body),
   });
   const json = await res.json();
 
-  if (json.error) throw new Error(`OpenAI error: ${json.error.message}`);
+  if (json?.error) throw new Error(`OpenAI error: ${json.error.message}`);
 
   return Array.isArray(opts.prompt)
     ? json.data.map((d) => d.embedding)
@@ -342,13 +352,15 @@ async function getEmbedding(cfg, opts) {
 /* -------------------------------------------------------------------------- */
 
 /**
- * Generate image(s) via OpenAI Images endpoint.
+ * Generate image(s) via the OpenAI Images endpoint.
  *
- * @param {{ bearer?:string, apiKey?:string, model?:string }} cfg
- * @param {Record<string,unknown>} opts
- * @returns {Promise<object>} raw JSON response
+ * @param {{ bearer?: string, apiKey?: string, model?: string }} cfg
+ * @param {Record<string, unknown>} opts
+ * @returns {Promise<object>} Raw JSON response from OpenAI.
  */
 async function generateImage(cfg, opts) {
+  const fetch = await getFetch();
+
   const modelId = /** @type {string} */ (opts.model ?? cfg.model);
   if (!modelId) throw new Error('No OpenAI image model supplied.');
 
@@ -357,29 +369,28 @@ async function generateImage(cfg, opts) {
     throw new Error(`Model “${modelId}” is not an image model.`);
   }
 
-  const endpointPath =
-    meta.endpoints?.image_generation ?? 'v1/images/generations';
-  const url = `https://api.openai.com/${endpointPath}`;
+  const endpointPath = meta.endpoints?.image_generation ?? 'v1/images/generations';
+  const url          = `https://api.openai.com/${endpointPath}`;
 
   const body = buildImagePayload(modelId, meta, opts);
 
-  const res = await fetch(url, {
-    method: 'POST',
+  const res  = await fetch(url, {
+    method : 'POST',
     headers: buildHeaders(cfg),
-    body: JSON.stringify(body),
+    body   : JSON.stringify(body),
   });
   const json = await res.json();
 
-  if (json.error) throw new Error(`OpenAI error: ${json.error.message}`);
+  if (json?.error) throw new Error(`OpenAI error: ${json.error.message}`);
   return json;
 }
 
 /* -------------------------------------------------------------------------- */
-/* Exports                                                                    */
+/* Module exports                                                             */
 /* -------------------------------------------------------------------------- */
 
 module.exports = {
   getCompletion,
   getEmbedding,
-  generateImage, // ← NEW export
+  generateImage,
 };
