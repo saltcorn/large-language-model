@@ -28,7 +28,7 @@
  * import without needing top-level await.
  *
  * Author:   Troy Kelly <troy@team.production.city>
- * Created:  12 May 2025
+ * Created:  29 April 2025
  */
 
 'use strict';

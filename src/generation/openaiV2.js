@@ -7,7 +7,7 @@
  *
  * Author:   Troy Kelly <troy@team.production.city>
  * Created:  28 Apr 2025
- * Updated:  12 May 2025 – dynamic fetch resolver
+ * Updated:  29 April 2025 – dynamic fetch resolver
  */
 
 'use strict';
@@ -138,7 +138,7 @@ function buildResponsesPayload(id, meta, opts) {
   const body = {
     model: id,
     input,
-    text : { format: { type: 'text' } },
+    text: { format: { type: 'text' } },
     tools: opts.tools ?? [],
     store: typeof opts.store === 'boolean' ? opts.store : true,
     ...pickParams(meta.supportedParams, opts),
@@ -147,7 +147,7 @@ function buildResponsesPayload(id, meta, opts) {
   /* Reasoning block ----------------------------------------------------- */
   if (meta.reasoningRequired || opts['reasoning.effort'] || opts['reasoning.summary']) {
     body.reasoning = {
-      effort : opts['reasoning.effort'] ?? 'auto',
+      effort: opts['reasoning.effort'] ?? 'auto',
       summary: opts['reasoning.summary'] ?? 'auto',
     };
   }
@@ -218,7 +218,7 @@ function buildImagePayload(id, meta, opts) {
 
   /** @type {Record<string, unknown>} */
   const body = {
-    model : id,
+    model: id,
     prompt: opts.prompt,
     ...pickParams(meta.supportedParams, opts),
   };
@@ -266,7 +266,7 @@ async function getCompletion(cfg, opts) {
     throw new Error(`Model “${modelId}” does not expose a usable endpoint.`);
   }
 
-  const url  = `https://api.openai.com/${endpointPath}`;
+  const url = `https://api.openai.com/${endpointPath}`;
   const body = useResponses
     ? buildResponsesPayload(modelId, meta, opts)
     : buildChatPayload(modelId, meta, opts);
@@ -276,10 +276,10 @@ async function getCompletion(cfg, opts) {
     console.log('→ OpenAI request', url, JSON.stringify(body, null, 2));
   }
 
-  const res  = await fetch(url, {
-    method : 'POST',
+  const res = await fetch(url, {
+    method: 'POST',
     headers: buildHeaders(cfg),
-    body   : JSON.stringify(body),
+    body: JSON.stringify(body),
   });
   const json = await res.json();
 
@@ -326,17 +326,17 @@ async function getEmbedding(cfg, opts) {
   if (!meta) throw new Error(`Unknown OpenAI model “${modelId}”.`);
 
   const endpointPath = meta.endpoints?.embeddings ?? 'v1/embeddings';
-  const url          = `https://api.openai.com/${endpointPath}`;
+  const url = `https://api.openai.com/${endpointPath}`;
 
   const body = {
     model: modelId,
     input: opts.prompt,
   };
 
-  const res  = await fetch(url, {
-    method : 'POST',
+  const res = await fetch(url, {
+    method: 'POST',
     headers: buildHeaders(cfg),
-    body   : JSON.stringify(body),
+    body: JSON.stringify(body),
   });
   const json = await res.json();
 
@@ -370,14 +370,14 @@ async function generateImage(cfg, opts) {
   }
 
   const endpointPath = meta.endpoints?.image_generation ?? 'v1/images/generations';
-  const url          = `https://api.openai.com/${endpointPath}`;
+  const url = `https://api.openai.com/${endpointPath}`;
 
   const body = buildImagePayload(modelId, meta, opts);
 
-  const res  = await fetch(url, {
-    method : 'POST',
+  const res = await fetch(url, {
+    method: 'POST',
     headers: buildHeaders(cfg),
-    body   : JSON.stringify(body),
+    body: JSON.stringify(body),
   });
   const json = await res.json();
 
