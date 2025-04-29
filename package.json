@@ -29,7 +29,8 @@
   "resolutions": {
     "nopt": "8.1.0",
     "node-gyp": "8.4.1",
-    "glob": "7.2.3"
+    "glob": "7.2.3",
+    "csvtojson": "2.0.10"
   },
   "devDependencies": {
     "@saltcorn/data": "^1.1.4",
