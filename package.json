@@ -43,8 +43,6 @@
     "@google-cloud/aiplatform": "^4.1.0",
     "@google-cloud/vertexai": "^1.10.0",
     "googleapis": "^148.0.0",
-    "node-fetch": "^3.3.2",
-    "ollama": "^0.5.15",
     "underscore": "^1.13.7"
   }
 }

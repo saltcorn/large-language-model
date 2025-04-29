@@ -1,71 +1,41 @@
 /**
- * @fileoverview
- * Cross-runtime `fetch` resolver for the Saltcorn Large-Language-Model plug-in.
+ * src/utils/getFetch.js
  *
- * Node ≥ 18 ships a global WHATWG-style `fetch`.  Earlier Node versions and the
- * Saltcorn Docker images (currently based on Node 16) do not.  Directly
- * requiring the ESM-only `node-fetch` package from a CommonJS context triggers
- * the “require() of ES module … not supported” error.
+ * Universal fetch resolver.
+ * -------------------------------------------------
+ * Saltcorn ≥ v1.0 ships with Node 18.19.0 which already
+ * includes the WHATWG `fetch` implementation.  The previous
+ * polyfill that dynamically imported `node-fetch` is no longer
+ * required.  An asynchronous façade is retained so existing
+ * callers that await `getFetch()` continue to work unchanged.
  *
- * This helper transparently returns a standards-compliant `fetch` implementation
- * regardless of the runtime:
- *
- *   1. If `globalThis.fetch` already exists, it is returned immediately.
- *   2. Otherwise `node-fetch` is *dynamically* imported (avoids the CJS ➞ ESM
- *      trap) and its default export is cached for subsequent calls.
- *
- * Usage:
- *
- *   const getFetch = require('../utils/getFetch');
- *
- *   async function doSomething() {
- *     const fetch = await getFetch();
- *     const res   = await fetch('https://example.com');
- *     …
- *   }
- *
- * The function is intentionally asynchronous so callers can `await` the dynamic
- * import without needing top-level await.
- *
- * Author:   Troy Kelly <troy@team.production.city>
- * Created:  29 April 2025
+ * Author:  Troy Kelly <troy@team.production.city>
+ * Updated: 30 Apr 2025 – native-only implementation
  */
 
 'use strict';
 
-/* eslint-disable node/no-unsupported-features/es-syntax */
-
 /**
- * Cached reference to the resolved fetch implementation.
+ * Cached reference – ensures subsequent calls resolve instantly.
  *
- * @type {typeof fetch | undefined}
- * @private
+ * @type {typeof fetch | null}
  */
-let cachedFetch;
+let cachedFetch = null;
 
 /**
- * Lazily obtain a WHATWG-compliant `fetch` implementation.
+ * Return the global `fetch` implementation wrapped in a promise.
  *
- * @returns {Promise<typeof fetch>} A promise resolving to the `fetch` function.
+ * @returns {Promise<typeof fetch>}
  */
 async function getFetch() {
-  if (cachedFetch) {
-    return cachedFetch;
-  }
-
-  /* ---------------------------------------------------------------------- */
-  /* 1.  Native fetch (Node ≥ 18, browsers, Cloudflare Workers etc.)        */
-  /* ---------------------------------------------------------------------- */
-  if (typeof globalThis.fetch === 'function') {
+  if (!cachedFetch) {
+    if (typeof globalThis.fetch !== 'function') {
+      throw new Error(
+        'Global fetch is not available – Node ≥ 18.0.0 is required.',
+      );
+    }
     cachedFetch = globalThis.fetch.bind(globalThis);
-    return cachedFetch;
   }
-
-  /* ---------------------------------------------------------------------- */
-  /* 2.  Fallback – dynamic import of node-fetch (ESM-only)                 */
-  /* ---------------------------------------------------------------------- */
-  const { default: fetchImpl } = await import('node-fetch');
-  cachedFetch = /** @type {typeof fetch} */ (fetchImpl);
   return cachedFetch;
 }
 
