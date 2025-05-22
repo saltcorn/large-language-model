@@ -108,7 +108,9 @@ const getCompletion = async (config, opts) => {
 
       const { Ollama } = ollamaMod;
 
-      const ollama = new Ollama();
+      const ollama = new Ollama(
+        config.ollama_host ? { host: config.ollama_host } : undefined
+      );
       const olres = await ollama.generate({
         model: opts?.model || config.model,
         ...opts,
