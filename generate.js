@@ -56,7 +56,9 @@ const getEmbedding = async (config, opts) => {
         if (!ollamaMod) throw new Error("Not implemented for this backend");
 
         const { Ollama } = ollamaMod;
-        const ollama = new Ollama();
+        const ollama = new Ollama(
+          config.ollama_host ? { host: config.ollama_host } : undefined
+        );
         const olres = await ollama.embeddings({
           model: opts?.model || config.embed_model || config.model,
           prompt: opts.prompt,

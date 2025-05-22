@@ -66,6 +66,13 @@ ${domReady(`
                 },
               },
               {
+                name: "ollama_host",
+                label: "Host",
+                sublabel: "Optional, for remote ollama server",
+                type: "String",                
+                showIf: { backend: "Local Ollama" },
+              },              
+              {
                 name: "client_id",
                 label: "Client ID",
                 sublabel: "OAuth2 client ID from your Google Cloud account",
