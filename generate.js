@@ -9,7 +9,7 @@ const {
 } = require("@google-cloud/aiplatform");
 const { google } = require("googleapis");
 const Plugin = require("@saltcorn/data/models/plugin");
-
+const path = require("path");
 const { features, getState } = require("@saltcorn/data/db/state");
 let ollamaMod;
 if (features.esm_plugins) ollamaMod = require("ollama");
@@ -104,19 +104,15 @@ const getCompletion = async (config, opts) => {
         opts
       );
     case "Local Ollama":
-      if (!ollamaMod) throw new Error("Not implemented for this backend");
-
-      const { Ollama } = ollamaMod;
-
-      const ollama = new Ollama(
-        config.ollama_host ? { host: config.ollama_host } : undefined
+      return await getCompletionOpenAICompatible(
+        {
+          chatCompleteEndpoint: config.ollama_host
+            ? path.join(config.ollama_host, "v1/chat/completions")
+            : "http://localhost:11434/v1/chat/completions",
+          model: opts?.model || config.model,
+        },
+        opts
       );
-      const olres = await ollama.generate({
-        model: opts?.model || config.model,
-        ...opts,
-      });
-      //console.log("the response ", olres);
-      return olres.response;
     case "Local llama.cpp":
       //TODO only check if unsafe plugins not allowed
       const isRoot = db.getTenantSchema() === db.connectObj.default_schema;
