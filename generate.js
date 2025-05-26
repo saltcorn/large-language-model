@@ -171,7 +171,7 @@ const getCompletionOpenAICompatible = async (
         content: systemPrompt || "You are a helpful assistant.",
       },
       ...chat,
-      { role: "user", content: prompt },
+      ...(prompt ? [{ role: "user", content: prompt }] : []),
     ],
     temperature: temperature || 0.7,
     ...rest,
