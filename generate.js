@@ -185,6 +185,13 @@ const getCompletionOpenAICompatible = async (
       "headers",
       JSON.stringify(headers)
     );
+  else
+    getState().log(
+      6,
+      `OpenAI request ${JSON.stringify(
+        body
+      )} to ${chatCompleteEndpoint} headers ${JSON.stringify(headers)}`
+    );
   const rawResponse = await fetch(chatCompleteEndpoint, {
     method: "POST",
     headers,
@@ -193,6 +200,7 @@ const getCompletionOpenAICompatible = async (
   const results = await rawResponse.json();
   if (debugResult)
     console.log("OpenAI response", JSON.stringify(results, null, 2));
+  else getState().log(6, `OpenAI response ${JSON.stringify(results)}`);
   if (results.error) throw new Error(`OpenAI error: ${results.error.message}`);
 
   return results?.choices?.[0]?.message?.tool_calls
