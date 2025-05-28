@@ -69,9 +69,9 @@ ${domReady(`
                 name: "ollama_host",
                 label: "Host",
                 sublabel: "Optional, for remote ollama server",
-                type: "String",                
+                type: "String",
                 showIf: { backend: "Local Ollama" },
-              },              
+              },
               {
                 name: "client_id",
                 label: "Client ID",
@@ -462,6 +462,12 @@ module.exports = {
               type: "String",
             },
             ...override_fields,
+            {
+              name: "model",
+              label: "Model",
+              sublabel: "Override default model name",
+              type: "String",
+            },
           ];
         } else if (table) {
           const textFields = table.fields
@@ -507,6 +513,7 @@ module.exports = {
           answer_field,
           override_config,
           chat_history_field,
+          model,
         },
       }) => {
         let prompt;
@@ -530,6 +537,7 @@ module.exports = {
           opts.api_key = altcfg.api_key;
           opts.bearer = altcfg.bearer;
         }
+        if (model) opts.model = model;
         let history = [];
         if (chat_history_field && row[chat_history_field]) {
           history = row[chat_history_field];
