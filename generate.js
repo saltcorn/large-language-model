@@ -223,14 +223,23 @@ const getCompletionOpenAICompatible = async (
     console.log("OpenAI response", JSON.stringify(results, null, 2));
   else getState().log(6, `OpenAI response ${JSON.stringify(results)}`);
   if (results.error) throw new Error(`OpenAI error: ${results.error.message}`);
-  if (responses_api)
-    return results?.output?.[0]?.tool_calls
+  if (responses_api) {
+    const textOutput = results.output
+      .filter((o) => o.type === "message")
+      .map((o) => o.content.map((c) => c.text).join(""))
+      .join("");
+    return results.output.some((o) => o.type === "function_call")
       ? {
-          tool_calls: results?.output?.[0]?.tool_calls,
-          content: results?.choices?.[0]?.message?.content || null,
+          tool_calls: results.output
+            .filter((o) => o.type === "function_call")
+            .map((o) => ({
+              function: { name: o.name, arguments: o.arguments },
+              ...o,
+            })),
+          content: textOutput || null,
         }
-      : results?.output?.[0]?.content?.[0].text || null;
-  else
+      : textOutput || null;
+  } else
     return results?.choices?.[0]?.message?.tool_calls
       ? {
           tool_calls: results?.choices?.[0]?.message?.tool_calls,
