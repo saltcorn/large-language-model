@@ -11,7 +11,7 @@ const { eval_expression } = require("@saltcorn/data/models/expression");
 const noSpaces = (s) => s.replaceAll(" ", "");
 module.exports = (config) => ({
   description: "Use LLM function call to insert rows in tables",
-  requireRow: true,
+  //requireRow: true,
   disableInList: true,
   disableInBuilder: true,
   configFields: async ({ table }) => {
@@ -22,7 +22,9 @@ module.exports = (config) => ({
         label: "Prompt",
         type: "String",
         fieldview: "textarea",
-        sublabel: `Use interpolations {{ }} to access variables in ${table.name} table.`,
+        sublabel: table
+          ? `Use interpolations {{ }} to access variables in ${table.name} table.`
+          : undefined,
       },
       {
         name: "function_name",
@@ -55,6 +57,7 @@ module.exports = (config) => ({
             name: "cardinality",
             label: "Cardinality",
             type: "String",
+            sublabel: "How many rows to generate",
             required: true,
             attributes: {
               options: ["One", /*"Zero or one",*/ "Zero to many"],
@@ -78,6 +81,9 @@ module.exports = (config) => ({
     const prompt = interpolate(prompt_template, row, user);
     let args = {};
     const json_type = (ty) => {
+      if (ty?.name === "Date") return "string";
+      //console.log("getting type of ", ty);
+
       if (ty?.js_type) return ty?.js_type;
     };
 
@@ -95,7 +101,7 @@ module.exports = (config) => ({
         if (typeof fixed[field.name] !== "undefined") continue;
         tableArgs[field.name] = {
           type: json_type(field.type),
-          description: field.description,
+          description: field.description || field.label,
         };
       }
       const argObj = { type: "object", properties: tableArgs };
@@ -116,6 +122,7 @@ module.exports = (config) => ({
         },
       },
     };
+
     const toolargs = {
       tools: [expert_function],
       tool_choice: { type: "function", function: { name: function_name } },
@@ -129,7 +136,7 @@ module.exports = (config) => ({
     for (const col of columns) {
       const target_table = Table.findOne({ name: col.target_table });
       const fixed = eval_expression(
-        col.fixed_values,
+        col.fixed_values || {},
         row,
         user,
         "llm_function_call fixed values"
@@ -143,7 +150,7 @@ module.exports = (config) => ({
         retval.row = row;
         await target_table.insertRow(row, user);
       } else {
-        retval.rows = {};
+        retval.rows = [];
         for (const resp of response[noSpaces(target_table.name)] || []) {
           const row = { ...resp, ...fixed };
           retval.rows.push(row);
