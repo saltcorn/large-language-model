@@ -147,13 +147,13 @@ module.exports = (config) => ({
           ...(response[noSpaces(target_table.name)] || {}),
           ...fixed,
         };
-        retval.row = row;
+        retval[noSpaces(target_table.name)] = row;
         await target_table.insertRow(row, user);
       } else {
-        retval.rows = [];
+        retval[noSpaces(target_table.name)] = [];
         for (const resp of response[noSpaces(target_table.name)] || []) {
           const row = { ...resp, ...fixed };
-          retval.rows.push(row);
+          retval[noSpaces(target_table.name)].push(row);
           await target_table.insertRow(row, user);
         }
       }
