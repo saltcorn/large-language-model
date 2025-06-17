@@ -179,6 +179,28 @@ const getCompletionOpenAICompatible = async (
       if (tool.function.required) tool.required = tool.function.required;
       delete tool.function;
     }
+    const newChat = [];
+    (chat || []).forEach((c) => {
+      if (c.tool_calls) {
+        c.tool_calls.forEach((tc) => {
+          newChat.push({
+            id: tc.id,
+            type: "function_call",
+            call_id: tc.call_id,
+            name: tc.name,
+            arguments: tc.arguments,
+          });
+        });
+      } else if (c.role === "tool") {
+        console.log("making function_call_output based on ", c);
+
+        newChat.push({
+          type: "function_call_output",
+          call_id: c.call_id,
+          output: c.content,
+        });
+      } else newChat.push(c);
+    });
     body.input = [
       {
         role: "system",
