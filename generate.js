@@ -173,6 +173,7 @@ const getCompletionOpenAICompatible = async (
   };
   if (responses_api) {
     for (const tool of body.tools || []) {
+      if (tool.type !== "function") continue;
       tool.name = tool.function.name;
       tool.description = tool.function.description;
       tool.parameters = tool.function.parameters;
