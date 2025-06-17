@@ -220,7 +220,7 @@ const getCompletionOpenAICompatible = async (
       ...(prompt ? [{ role: "user", content: prompt }] : []),
     ];
   }
-  if (true || debugResult)
+  if (debugResult)
     console.log(
       "OpenAI request",
       JSON.stringify(body, null, 2),
@@ -242,7 +242,8 @@ const getCompletionOpenAICompatible = async (
     body: JSON.stringify(body),
   });
   const results = await rawResponse.json();
-  if (true || debugResult)
+  //console.log("results", results);
+  if (debugResult)
     console.log("OpenAI response", JSON.stringify(results, null, 2));
   else getState().log(6, `OpenAI response ${JSON.stringify(results)}`);
   if (results.error) throw new Error(`OpenAI error: ${results.error.message}`);
@@ -251,14 +252,21 @@ const getCompletionOpenAICompatible = async (
       .filter((o) => o.type === "message")
       .map((o) => o.content.map((c) => c.text).join(""))
       .join("");
-    return results.output.some((o) => o.type === "function_call")
+    return results.output.some(
+      (o) => o.type === "function_call" || o.type === "image_generation_call"
+    )
       ? {
-          tool_calls: results.output
-            .filter((o) => o.type === "function_call")
-            .map((o) => ({
-              function: { name: o.name, arguments: o.arguments },
-              ...o,
-            })),
+          tool_calls: emptyToUndefined(
+            results.output
+              .filter((o) => o.type === "function_call")
+              .map((o) => ({
+                function: { name: o.name, arguments: o.arguments },
+                ...o,
+              }))
+          ),
+          image_calls: emptyToUndefined(
+            results.output.filter((o) => o.type === "image_generation_call")
+          ),
           content: textOutput || null,
         }
       : textOutput || null;
@@ -270,6 +278,8 @@ const getCompletionOpenAICompatible = async (
         }
       : results?.choices?.[0]?.message?.content || null;
 };
+
+const emptyToUndefined = (xs) => (xs.length ? xs : undefined);
 
 const getEmbeddingOpenAICompatible = async (
   config,
