@@ -125,6 +125,7 @@ module.exports = (config) => ({
     getState().log(6, `llm_function_call completion: ${JSON.stringify(compl)}`);
     const response = JSON.parse(compl.tool_calls[0].function.arguments);
     //console.log("response: ", JSON.stringify(response, null, 2));
+    const retval = {};
     for (const col of columns) {
       const target_table = Table.findOne({ name: col.target_table });
       const fixed = eval_expression(
@@ -139,14 +140,17 @@ module.exports = (config) => ({
           ...(response[noSpaces(target_table.name)] || {}),
           ...fixed,
         };
+        retval.row = row;
         await target_table.insertRow(row, user);
       } else {
+        retval.rows = {};
         for (const resp of response[noSpaces(target_table.name)] || []) {
           const row = { ...resp, ...fixed };
+          retval.rows.push(row);
           await target_table.insertRow(row, user);
         }
       }
     }
-    return {};
+    return retval;
   },
 });
