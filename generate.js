@@ -172,6 +172,13 @@ const getCompletionOpenAICompatible = async (
     ...rest,
   };
   if (responses_api) {
+    for (const tool of body.tools || []) {
+      tool.name = tool.function.name;
+      tool.description = tool.function.description;
+      tool.parameters = tool.function.parameters;
+      if (tool.function.required) tool.required = tool.function.required;
+      delete tool.function;
+    }
     body.input = [
       {
         role: "system",
