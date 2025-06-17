@@ -83,9 +83,12 @@ const getCompletion = async (config, opts) => {
     case "OpenAI":
       return await getCompletionOpenAICompatible(
         {
-          chatCompleteEndpoint: "https://api.openai.com/v1/chat/completions",
+          chatCompleteEndpoint: config.responses_api
+            ? "https://api.openai.com/v1/responses"
+            : "https://api.openai.com/v1/chat/completions",
           bearer: opts?.api_key || opts?.bearer || config.api_key,
           model: opts?.model || config.model,
+          responses_api: config.responses_api,
         },
         opts
       );
@@ -144,7 +147,7 @@ const getCompletion = async (config, opts) => {
 };
 
 const getCompletionOpenAICompatible = async (
-  { chatCompleteEndpoint, bearer, apiKey, model },
+  { chatCompleteEndpoint, bearer, apiKey, model, responses_api },
   {
     systemPrompt,
     prompt,
@@ -165,18 +168,28 @@ const getCompletionOpenAICompatible = async (
   const body = {
     //prompt: "How are you?",
     model: rest.model || model,
-    messages: [
+    temperature: temperature || 0.7,
+    ...rest,
+  };
+  if (responses_api) {
+    body.input = [
       {
         role: "system",
         content: systemPrompt || "You are a helpful assistant.",
       },
       ...chat,
       ...(prompt ? [{ role: "user", content: prompt }] : []),
-    ],
-    temperature: temperature || 0.7,
-    ...rest,
-  };
-  if (debugResult)
+    ];
+  } else {
+    body.messages = [
+      {
+        role: "system",
+        content: systemPrompt || "You are a helpful assistant.",
+      },
+      ...chat,
+      ...(prompt ? [{ role: "user", content: prompt }] : []),
+    ];
+  }
     console.log(
       "OpenAI request",
       JSON.stringify(body, null, 2),
