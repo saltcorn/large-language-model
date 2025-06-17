@@ -179,6 +179,7 @@ ${domReady(`
                 name: "responses_api",
                 label: "Response API", //gpt-3.5-turbo
                 type: "Bool",
+                sublabel: "Use the newer Responses API",
                 showIf: { backend: "OpenAI" },
                 
               },
