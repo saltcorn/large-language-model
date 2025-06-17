@@ -207,7 +207,7 @@ const getCompletionOpenAICompatible = async (
         role: "system",
         content: systemPrompt || "You are a helpful assistant.",
       },
-      ...chat,
+      ...newChat,
       ...(prompt ? [{ role: "user", content: prompt }] : []),
     ];
   } else {
