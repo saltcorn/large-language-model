@@ -190,6 +190,7 @@ const getCompletionOpenAICompatible = async (
       ...(prompt ? [{ role: "user", content: prompt }] : []),
     ];
   }
+  if (true || debugResult)
     console.log(
       "OpenAI request",
       JSON.stringify(body, null, 2),
@@ -211,17 +212,24 @@ const getCompletionOpenAICompatible = async (
     body: JSON.stringify(body),
   });
   const results = await rawResponse.json();
-  if (debugResult)
+  if (true || debugResult)
     console.log("OpenAI response", JSON.stringify(results, null, 2));
   else getState().log(6, `OpenAI response ${JSON.stringify(results)}`);
   if (results.error) throw new Error(`OpenAI error: ${results.error.message}`);
-
-  return results?.choices?.[0]?.message?.tool_calls
-    ? {
-        tool_calls: results?.choices?.[0]?.message?.tool_calls,
-        content: results?.choices?.[0]?.message?.content || null,
-      }
-    : results?.choices?.[0]?.message?.content || null;
+  if (responses_api)
+    return results?.output?.[0]?.tool_calls
+      ? {
+          tool_calls: results?.output?.[0]?.tool_calls,
+          content: results?.choices?.[0]?.message?.content || null,
+        }
+      : results?.output?.[0]?.content?.[0].text || null;
+  else
+    return results?.choices?.[0]?.message?.tool_calls
+      ? {
+          tool_calls: results?.choices?.[0]?.message?.tool_calls,
+          content: results?.choices?.[0]?.message?.content || null,
+        }
+      : results?.choices?.[0]?.message?.content || null;
 };
 
 const getEmbeddingOpenAICompatible = async (
