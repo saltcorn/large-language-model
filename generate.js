@@ -208,7 +208,22 @@ const getCompletionOpenAICompatible = async (
           call_id: c.call_id,
           output: c.content,
         });
-      } else newChat.push(c);
+      } else {
+        const fcontent = (c) => {
+          if (c.type === "image_url")
+            return {
+              type: "input_image",
+              image_url: c.image_url.url,
+            };
+          else return c;
+        };
+        newChat.push({
+          ...c,
+          content: Array.isArray(c.content)
+            ? c.content.map(fcontent)
+            : c.content,
+        });
+      }
     });
     body.input = [
       {
