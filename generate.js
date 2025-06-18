@@ -192,6 +192,13 @@ const getCompletionOpenAICompatible = async (
             arguments: tc.arguments,
           });
         });
+      } else if (c.content?.image_calls) {
+        c.content.image_calls.forEach((ic) => {
+          newChat.push({
+            ...ic,
+            result: undefined,
+          });
+        });
       } else if (c.role === "tool") {
         console.log("making function_call_output based on ", c);
 
