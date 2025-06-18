@@ -197,6 +197,7 @@ const getCompletionOpenAICompatible = async (
           newChat.push({
             ...ic,
             result: undefined,
+            filename: undefined,
           });
         });
       } else if (c.role === "tool") {
