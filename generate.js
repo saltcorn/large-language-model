@@ -83,9 +83,12 @@ const getCompletion = async (config, opts) => {
     case "OpenAI":
       return await getCompletionOpenAICompatible(
         {
-          chatCompleteEndpoint: "https://api.openai.com/v1/chat/completions",
+          chatCompleteEndpoint: config.responses_api
+            ? "https://api.openai.com/v1/responses"
+            : "https://api.openai.com/v1/chat/completions",
           bearer: opts?.api_key || opts?.bearer || config.api_key,
           model: opts?.model || config.model,
+          responses_api: config.responses_api,
         },
         opts
       );
@@ -144,7 +147,7 @@ const getCompletion = async (config, opts) => {
 };
 
 const getCompletionOpenAICompatible = async (
-  { chatCompleteEndpoint, bearer, apiKey, model },
+  { chatCompleteEndpoint, bearer, apiKey, model, responses_api },
   {
     systemPrompt,
     prompt,
@@ -165,17 +168,79 @@ const getCompletionOpenAICompatible = async (
   const body = {
     //prompt: "How are you?",
     model: rest.model || model,
-    messages: [
+    temperature: temperature || 0.7,
+    ...rest,
+  };
+  if (responses_api) {
+    for (const tool of body.tools || []) {
+      if (tool.type !== "function") continue;
+      tool.name = tool.function.name;
+      tool.description = tool.function.description;
+      tool.parameters = tool.function.parameters;
+      if (tool.function.required) tool.required = tool.function.required;
+      delete tool.function;
+    }
+    const newChat = [];
+    (chat || []).forEach((c) => {
+      if (c.tool_calls) {
+        c.tool_calls.forEach((tc) => {
+          newChat.push({
+            id: tc.id,
+            type: "function_call",
+            call_id: tc.call_id,
+            name: tc.name,
+            arguments: tc.arguments,
+          });
+        });
+      } else if (c.content?.image_calls) {
+        c.content.image_calls.forEach((ic) => {
+          newChat.push({
+            ...ic,
+            result: undefined,
+            filename: undefined,
+          });
+        });
+      } else if (c.role === "tool") {
+        newChat.push({
+          type: "function_call_output",
+          call_id: c.call_id,
+          output: c.content,
+        });
+      } else {
+        const fcontent = (c) => {
+          if (c.type === "image_url")
+            return {
+              type: "input_image",
+              image_url: c.image_url.url,
+            };
+          else return c;
+        };
+        newChat.push({
+          ...c,
+          content: Array.isArray(c.content)
+            ? c.content.map(fcontent)
+            : c.content,
+        });
+      }
+    });
+    body.input = [
+      {
+        role: "system",
+        content: systemPrompt || "You are a helpful assistant.",
+      },
+      ...newChat,
+      ...(prompt ? [{ role: "user", content: prompt }] : []),
+    ];
+  } else {
+    body.messages = [
       {
         role: "system",
         content: systemPrompt || "You are a helpful assistant.",
       },
       ...chat,
       ...(prompt ? [{ role: "user", content: prompt }] : []),
-    ],
-    temperature: temperature || 0.7,
-    ...rest,
-  };
+    ];
+  }
   if (debugResult)
     console.log(
       "OpenAI request",
@@ -198,18 +263,44 @@ const getCompletionOpenAICompatible = async (
     body: JSON.stringify(body),
   });
   const results = await rawResponse.json();
+  //console.log("results", results);
   if (debugResult)
     console.log("OpenAI response", JSON.stringify(results, null, 2));
   else getState().log(6, `OpenAI response ${JSON.stringify(results)}`);
   if (results.error) throw new Error(`OpenAI error: ${results.error.message}`);
-
-  return results?.choices?.[0]?.message?.tool_calls
-    ? {
-        tool_calls: results?.choices?.[0]?.message?.tool_calls,
-        content: results?.choices?.[0]?.message?.content || null,
-      }
-    : results?.choices?.[0]?.message?.content || null;
+  if (responses_api) {
+    const textOutput = results.output
+      .filter((o) => o.type === "message")
+      .map((o) => o.content.map((c) => c.text).join(""))
+      .join("");
+    return results.output.some(
+      (o) => o.type === "function_call" || o.type === "image_generation_call"
+    )
+      ? {
+          tool_calls: emptyToUndefined(
+            results.output
+              .filter((o) => o.type === "function_call")
+              .map((o) => ({
+                function: { name: o.name, arguments: o.arguments },
+                ...o,
+              }))
+          ),
+          image_calls: emptyToUndefined(
+            results.output.filter((o) => o.type === "image_generation_call")
+          ),
+          content: textOutput || null,
+        }
+      : textOutput || null;
+  } else
+    return results?.choices?.[0]?.message?.tool_calls
+      ? {
+          tool_calls: results?.choices?.[0]?.message?.tool_calls,
+          content: results?.choices?.[0]?.message?.content || null,
+        }
+      : results?.choices?.[0]?.message?.content || null;
 };
+
+const emptyToUndefined = (xs) => (xs.length ? xs : undefined);
 
 const getEmbeddingOpenAICompatible = async (
   config,

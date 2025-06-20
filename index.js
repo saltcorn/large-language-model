@@ -172,7 +172,16 @@ ${domReady(`
                 sublabel: "From your OpenAI account",
                 type: "String",
                 required: true,
+                fieldview: "password",
                 showIf: { backend: "OpenAI" },
+              },
+              {
+                name: "responses_api",
+                label: "Response API", //gpt-3.5-turbo
+                type: "Bool",
+                sublabel: "Use the newer Responses API",
+                showIf: { backend: "OpenAI" },
+                
               },
               {
                 name: "llama_dir",
