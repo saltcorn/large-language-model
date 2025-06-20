@@ -232,6 +232,8 @@ const getCompletionOpenAICompatible = async (
       ...(prompt ? [{ role: "user", content: prompt }] : []),
     ];
   } else {
+    // not response api
+    body.tools = body.tools.filter((t) => t.function);
     body.messages = [
       {
         role: "system",
