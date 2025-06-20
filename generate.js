@@ -201,8 +201,6 @@ const getCompletionOpenAICompatible = async (
           });
         });
       } else if (c.role === "tool") {
-        console.log("making function_call_output based on ", c);
-
         newChat.push({
           type: "function_call_output",
           call_id: c.call_id,
