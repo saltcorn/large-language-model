@@ -200,6 +200,12 @@ const getCompletionOpenAICompatible = async (
             filename: undefined,
           });
         });
+      } else if (c.content?.mcp_calls) {
+        c.content.mcp_calls.forEach((ic) => {
+          newChat.push({
+            ...ic,
+          });
+        });
       } else if (c.role === "tool") {
         newChat.push({
           type: "function_call_output",
@@ -276,7 +282,11 @@ const getCompletionOpenAICompatible = async (
       .map((o) => o.content.map((c) => c.text).join(""))
       .join("");
     return results.output.some(
-      (o) => o.type === "function_call" || o.type === "image_generation_call"
+      (o) =>
+        o.type === "function_call" ||
+        o.type === "image_generation_call" ||
+        o.type === "mcp_list_tools" ||
+        o.type === "mcp_call"
     )
       ? {
           tool_calls: emptyToUndefined(
@@ -289,6 +299,11 @@ const getCompletionOpenAICompatible = async (
           ),
           image_calls: emptyToUndefined(
             results.output.filter((o) => o.type === "image_generation_call")
+          ),
+          mcp_calls: emptyToUndefined(
+            results.output.filter(
+              (o) => o.type === "mcp_call" || o.type === "mcp_list_tools"
+            )
           ),
           content: textOutput || null,
         }
