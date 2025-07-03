@@ -239,7 +239,7 @@ const getCompletionOpenAICompatible = async (
     ];
   } else {
     // not response api
-    body.tools = body.tools.filter((t) => t.function);
+    if (body.tools) body.tools = body.tools.filter((t) => t.function);
     body.messages = [
       {
         role: "system",
