@@ -73,6 +73,60 @@ ${domReady(`
                 showIf: { backend: "Local Ollama" },
               },
               {
+                name: "api_key",
+                label: "API key",
+                sublabel: "From your OpenAI account",
+                type: "String",
+                required: true,
+                fieldview: "password",
+                showIf: { backend: "OpenAI" },
+              },
+              {
+                name: "responses_api",
+                label: "Response API", //gpt-3.5-turbo
+                type: "Bool",
+                sublabel: "Use the newer Responses API",
+                showIf: { backend: "OpenAI" },
+              },
+              {
+                name: "llama_dir",
+                label: "llama.cpp directory",
+                type: "String",
+                required: true,
+                showIf: { backend: "Local llama.cpp" },
+              },
+              {
+                name: "model_path",
+                label: "Model path",
+                type: "String",
+                required: true,
+                showIf: { backend: "Local llama.cpp" },
+              },
+              {
+                name: "model",
+                label: "Model", //gpt-3.5-turbo
+                type: "String",
+                required: true,
+                showIf: { backend: "OpenAI" },
+                attributes: {
+                  options: OPENAI_MODELS,
+                },
+              },
+              {
+                name: "embed_model",
+                label: "Embedding model", //gpt-3.5-turbo
+                type: "String",
+                required: true,
+                showIf: { backend: "OpenAI" },
+                attributes: {
+                  options: [
+                    "text-embedding-3-small",
+                    "text-embedding-3-large",
+                    "text-embedding-ada-002",
+                  ],
+                },
+              },
+                  {
                 name: "client_id",
                 label: "Client ID",
                 sublabel: "OAuth2 client ID from your Google Cloud account",
@@ -115,8 +169,7 @@ ${domReady(`
                 label: "Temperature",
                 type: "Float",
                 sublabel:
-                  "Controls the randomness of predictions. Higher values make the output more random.",
-                showIf: { backend: "Google Vertex AI" },
+                  "Controls the randomness of predictions. Higher values make the output more random. Leave blank for models that do not support temperature",
                 default: 0.7,
                 attributes: {
                   min: 0,
@@ -166,61 +219,7 @@ ${domReady(`
                 showIf: { backend: "Google Vertex AI" },
                 default: "us-central1",
               },
-              {
-                name: "api_key",
-                label: "API key",
-                sublabel: "From your OpenAI account",
-                type: "String",
-                required: true,
-                fieldview: "password",
-                showIf: { backend: "OpenAI" },
-              },
-              {
-                name: "responses_api",
-                label: "Response API", //gpt-3.5-turbo
-                type: "Bool",
-                sublabel: "Use the newer Responses API",
-                showIf: { backend: "OpenAI" },
-                
-              },
-              {
-                name: "llama_dir",
-                label: "llama.cpp directory",
-                type: "String",
-                required: true,
-                showIf: { backend: "Local llama.cpp" },
-              },
-              {
-                name: "model_path",
-                label: "Model path",
-                type: "String",
-                required: true,
-                showIf: { backend: "Local llama.cpp" },
-              },
-              {
-                name: "model",
-                label: "Model", //gpt-3.5-turbo
-                type: "String",
-                required: true,
-                showIf: { backend: "OpenAI" },
-                attributes: {
-                  options: OPENAI_MODELS,
-                },
-              },
-              {
-                name: "embed_model",
-                label: "Embedding model", //gpt-3.5-turbo
-                type: "String",
-                required: true,
-                showIf: { backend: "OpenAI" },
-                attributes: {
-                  options: [
-                    "text-embedding-3-small",
-                    "text-embedding-3-large",
-                    "text-embedding-ada-002",
-                  ],
-                },
-              },
+          
               {
                 name: "bearer_auth",
                 label: "Bearer Auth",

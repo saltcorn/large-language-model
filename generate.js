@@ -147,17 +147,8 @@ const getCompletion = async (config, opts) => {
 };
 
 const getCompletionOpenAICompatible = async (
-  { chatCompleteEndpoint, bearer, apiKey, model, responses_api },
-  {
-    systemPrompt,
-    prompt,
-    temperature,
-    debugResult,
-    chat = [],
-    api_key,
-    endpoint,
-    ...rest
-  }
+  { chatCompleteEndpoint, bearer, apiKey, model, responses_api, temperature },
+  { systemPrompt, prompt, debugResult, chat = [], api_key, endpoint, ...rest }
 ) => {
   const headers = {
     "Content-Type": "application/json",
@@ -168,9 +159,14 @@ const getCompletionOpenAICompatible = async (
   const body = {
     //prompt: "How are you?",
     model: rest.model || model,
-    temperature: temperature || 0.7,
     ...rest,
   };
+  if (rest.temperature || temperature) {
+    const str_or_num = rest.temperature || temperature;
+    body.temperature = +str_or_num;
+  } else if (typeof temperature==="undefined") {
+    body.temperature = 0.7
+  }
   if (responses_api) {
     for (const tool of body.tools || []) {
       if (tool.type !== "function") continue;
