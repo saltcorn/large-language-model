@@ -164,9 +164,12 @@ const getCompletionOpenAICompatible = async (
   if (rest.temperature || temperature) {
     const str_or_num = rest.temperature || temperature;
     body.temperature = +str_or_num;
-  } else if (typeof temperature==="undefined") {
-    body.temperature = 0.7
+  } else if (rest.temperature === null) {
+    delete body.temperature;
+  } else if (typeof temperature === "undefined") {
+    body.temperature = 0.7;
   }
+
   if (responses_api) {
     for (const tool of body.tools || []) {
       if (tool.type !== "function") continue;
