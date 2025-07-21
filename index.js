@@ -127,6 +127,16 @@ ${domReady(`
                 },
               },
               {
+                name: "image_model",
+                label: "Image model", //gpt-3.5-turbo
+                type: "String",
+                required: true,
+                showIf: { backend: "OpenAI" },
+                attributes: {
+                  options: ["gpt-image-1", "dall-e-2", "dall-e-3"],
+                },
+              },
+              {
                 name: "client_id",
                 label: "Client ID",
                 sublabel: "OAuth2 client ID from your Google Cloud account",
