@@ -78,6 +78,23 @@ const getEmbedding = async (config, opts) => {
   }
 };
 
+const getImageGeneration = async (config, opts) => {
+  switch (config.backend) {
+    case "OpenAI":
+      return await getImageGenOpenAICompatible(
+        {
+          imageEndpoint: "https://api.openai.com/v1/images/generations",
+          bearer: opts?.api_key || opts?.bearer || config.api_key,
+          model: opts?.model || config.model,
+          responses_api: config.responses_api,
+        },
+        opts
+      );
+    default:
+      throw new Error("Image generation not implemented for this backend");
+  }
+};
+
 const getCompletion = async (config, opts) => {
   switch (config.backend) {
     case "OpenAI":
@@ -318,6 +335,39 @@ const getCompletionOpenAICompatible = async (
 
 const emptyToUndefined = (xs) => (xs.length ? xs : undefined);
 
+const getImageGenOpenAICompatible = async (
+  config,
+  { prompt, model, debugResult, size, quality, n }
+) => {
+  const { imageEndpoint, bearer, apiKey, image_model } = config;
+  const headers = {
+    "Content-Type": "application/json",
+    Accept: "application/json",
+  };
+  if (bearer) headers.Authorization = "Bearer " + bearer;
+  if (apiKey) headers["api-key"] = apiKey;
+  const body = {
+    //prompt: "How are you?",
+    model: model || image_model || "gpt-image-1",
+    input: prompt,
+    size: size || "1024x1024",
+    quality: quality || "auto",
+    n: n || 1,
+  };
+
+  const rawResponse = await fetch(imageEndpoint, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(body),
+  });
+  const results = await rawResponse.json();
+  if (debugResult)
+    console.log("OpenAI response", JSON.stringify(results, null, 2));
+  if (results.error) throw new Error(`OpenAI error: ${results.error.message}`);
+  console.log(results);
+  return results?.data?.[0]?.embedding;
+};
+
 const getEmbeddingOpenAICompatible = async (
   config,
   { prompt, model, debugResult }
@@ -518,4 +568,4 @@ const getEmbeddingGoogleVertex = async (config, opts, oauth2Client) => {
   return embeddings;
 };
 
-module.exports = { getCompletion, getEmbedding };
+module.exports = { getCompletion, getEmbedding, getImageGeneration };
