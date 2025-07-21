@@ -337,7 +337,16 @@ const emptyToUndefined = (xs) => (xs.length ? xs : undefined);
 
 const getImageGenOpenAICompatible = async (
   config,
-  { prompt, model, debugResult, size, quality, n }
+  {
+    prompt,
+    model,
+    debugResult,
+    size,
+    quality,
+    n,
+    output_format,
+    response_format,
+  }
 ) => {
   const { imageEndpoint, bearer, apiKey, image_model } = config;
   const headers = {
@@ -349,11 +358,15 @@ const getImageGenOpenAICompatible = async (
   const body = {
     //prompt: "How are you?",
     model: model || image_model || "gpt-image-1",
-    input: prompt,
+    prompt,
     size: size || "1024x1024",
-    quality: quality || "auto",
     n: n || 1,
   };
+  if (quality) body.quality = quality;
+  if (output_format) body.output_format = output_format;
+  if (response_format) body.response_format = response_format;
+  if (n) body.n = n;
+  if (debugResult) console.log("OpenAI image request", imageEndpoint, body);
 
   const rawResponse = await fetch(imageEndpoint, {
     method: "POST",
@@ -361,11 +374,9 @@ const getImageGenOpenAICompatible = async (
     body: JSON.stringify(body),
   });
   const results = await rawResponse.json();
-  if (debugResult)
-    console.log("OpenAI response", JSON.stringify(results, null, 2));
+  if (debugResult) console.log("OpenAI image response", results);
   if (results.error) throw new Error(`OpenAI error: ${results.error.message}`);
-  console.log(results);
-  return results?.data?.[0]?.embedding;
+  return results?.data?.[0]?.b64_json || results?.data?.[0]?.url;
 };
 
 const getEmbeddingOpenAICompatible = async (
