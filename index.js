@@ -695,13 +695,14 @@ module.exports = {
         if (ans.url) {
           //fetch url
         } else if (ans.b64_json) {
+          const imgContents = Buffer.from(ans.b64_json, "base64");
           const file = await File.from_contents(
             "generated.png",
             "image/png",
-            ans.b64_json,
+            imgContents,
             user?.id
           );
-          upd[answer_field] = file.location;
+          upd[answer_field] = file.path_to_serve;
         }
         if (mode === "workflow") return upd;
         else await table.updateRow(upd, row[table.pk_name]);
