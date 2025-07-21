@@ -126,7 +126,7 @@ ${domReady(`
                   ],
                 },
               },
-                  {
+              {
                 name: "client_id",
                 label: "Client ID",
                 sublabel: "OAuth2 client ID from your Google Cloud account",
@@ -219,7 +219,7 @@ ${domReady(`
                 showIf: { backend: "Google Vertex AI" },
                 default: "us-central1",
               },
-          
+
               {
                 name: "bearer_auth",
                 label: "Bearer Auth",
