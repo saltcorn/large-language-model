@@ -376,7 +376,7 @@ const getImageGenOpenAICompatible = async (
   const results = await rawResponse.json();
   if (debugResult) console.log("OpenAI image response", results);
   if (results.error) throw new Error(`OpenAI error: ${results.error.message}`);
-  return results?.data?.[0]?.b64_json || results?.data?.[0]?.url;
+  return results?.data?.[0];
 };
 
 const getEmbeddingOpenAICompatible = async (
