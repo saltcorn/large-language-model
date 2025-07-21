@@ -4,7 +4,7 @@ const FieldRepeat = require("@saltcorn/data/models/fieldrepeat");
 const Plugin = require("@saltcorn/data/models/plugin");
 const { domReady } = require("@saltcorn/markup/tags");
 const db = require("@saltcorn/data/db");
-const { getCompletion, getEmbedding } = require("./generate");
+const { getCompletion, getEmbedding, getImageGeneration } = require("./generate");
 const { OPENAI_MODELS } = require("./constants.js");
 const { eval_expression } = require("@saltcorn/data/models/expression");
 const { interpolate } = require("@saltcorn/data/utils");
@@ -326,6 +326,15 @@ const functions = (config) => {
       },
       isAsync: true,
       description: "Generate text with GPT",
+      arguments: [{ name: "prompt", type: "String" }],
+    },
+     llm_image_generate: {
+      run: async (prompt, opts) => {
+        const result = await getImageGeneration(config, { prompt, ...opts });
+        return result;
+      },
+      isAsync: true,
+      description: "Generate image",
       arguments: [{ name: "prompt", type: "String" }],
     },
     llm_embedding: {
