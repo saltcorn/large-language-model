@@ -1,10 +1,15 @@
 const Workflow = require("@saltcorn/data/models/workflow");
 const Form = require("@saltcorn/data/models/form");
+const File = require("@saltcorn/data/models/file");
 const FieldRepeat = require("@saltcorn/data/models/fieldrepeat");
 const Plugin = require("@saltcorn/data/models/plugin");
 const { domReady } = require("@saltcorn/markup/tags");
 const db = require("@saltcorn/data/db");
-const { getCompletion, getEmbedding } = require("./generate");
+const {
+  getCompletion,
+  getEmbedding,
+  getImageGeneration,
+} = require("./generate");
 const { OPENAI_MODELS } = require("./constants.js");
 const { eval_expression } = require("@saltcorn/data/models/expression");
 const { interpolate } = require("@saltcorn/data/utils");
@@ -126,7 +131,17 @@ ${domReady(`
                   ],
                 },
               },
-                  {
+              {
+                name: "image_model",
+                label: "Image model", //gpt-3.5-turbo
+                type: "String",
+                required: true,
+                showIf: { backend: "OpenAI" },
+                attributes: {
+                  options: ["gpt-image-1", "dall-e-2", "dall-e-3"],
+                },
+              },
+              {
                 name: "client_id",
                 label: "Client ID",
                 sublabel: "OAuth2 client ID from your Google Cloud account",
@@ -219,7 +234,7 @@ ${domReady(`
                 showIf: { backend: "Google Vertex AI" },
                 default: "us-central1",
               },
-          
+
               {
                 name: "bearer_auth",
                 label: "Bearer Auth",
@@ -316,6 +331,15 @@ const functions = (config) => {
       },
       isAsync: true,
       description: "Generate text with GPT",
+      arguments: [{ name: "prompt", type: "String" }],
+    },
+    llm_image_generate: {
+      run: async (prompt, opts) => {
+        const result = await getImageGeneration(config, { prompt, ...opts });
+        return result;
+      },
+      isAsync: true,
+      description: "Generate image",
       arguments: [{ name: "prompt", type: "String" }],
     },
     llm_embedding: {
@@ -567,6 +591,124 @@ module.exports = {
         else await table.updateRow(upd, row[table.pk_name]);
       },
     },
+    llm_generate_image: {
+      description: "Generate image with AI based on a text prompt",
+      requireRow: true,
+      configFields: ({ table, mode }) => {
+        if (mode === "workflow") {
+          return [
+            {
+              name: "prompt_template",
+              label: "Prompt",
+              sublabel:
+                "Prompt text. Use interpolations {{ }} to access variables in the context",
+              type: "String",
+              fieldview: "textarea",
+              required: true,
+            },
+            {
+              name: "answer_field",
+              label: "Answer variable",
+              sublabel:
+                "Set the generated image filename to this context variable",
+              type: "String",
+              required: true,
+            },
+            {
+              name: "model",
+              label: "Model",
+              sublabel: "Override default model name",
+              type: "String",
+            },
+          ];
+        } else if (table) {
+          const textFields = table.fields
+            .filter((f) => f.type?.sql_name === "text")
+            .map((f) => f.name);
+          const fileFields = table.fields
+            .filter((f) => f.type === "File")
+            .map((f) => f.name);
+
+          return [
+            {
+              name: "prompt_field",
+              label: "Prompt field",
+              sublabel: "Field with the text of the prompt",
+              type: "String",
+              required: true,
+              attributes: { options: [...textFields, "Formula"] },
+            },
+            {
+              name: "prompt_formula",
+              label: "Prompt formula",
+              type: "String",
+              showIf: { prompt_field: "Formula" },
+            },
+            {
+              name: "answer_field",
+              label: "Answer field",
+              sublabel: "Output field will be set to the generated image file",
+              type: "String",
+              required: true,
+              attributes: { options: fileFields },
+            },
+          ];
+        }
+      },
+      run: async ({
+        row,
+        table,
+        user,
+        mode,
+        configuration: {
+          prompt_field,
+          prompt_formula,
+          prompt_template,
+          answer_field,
+          override_config,
+          chat_history_field,
+          model,
+        },
+      }) => {
+        let prompt;
+        if (mode === "workflow")
+          prompt = interpolate(prompt_template, row, user);
+        else if (prompt_field === "Formula" || mode === "workflow")
+          prompt = eval_expression(
+            prompt_formula,
+            row,
+            user,
+            "llm_generate prompt formula"
+          );
+        else prompt = row[prompt_field];
+        const opts = { debugResult: true }; // response_format: "b64_json" };
+
+        if (model) opts.model = model;
+        let history = [];
+
+        const ans = await getImageGeneration(config, {
+          prompt,
+          ...opts,
+        });
+        const upd = {};
+
+        if (ans.url) {
+          //fetch url
+        } else if (ans.b64_json) {
+          const imgContents = Buffer.from(ans.b64_json, "base64");
+          const file = await File.from_contents(
+            "generated.png",
+            "image/png",
+            imgContents,
+            user?.id
+          );
+          upd[answer_field] = file.path_to_serve;
+        }
+        if (mode === "workflow") return upd;
+        else await table.updateRow(upd, row[table.pk_name]);
+      },
+    },
+
     llm_generate_json: {
       description:
         "Generate JSON with AI based on a text prompt. You must sppecify the JSON fields in the configuration.",
