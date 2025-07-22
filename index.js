@@ -602,6 +602,13 @@ module.exports = {
         }));
         const commonFields = [
           {
+            name: "filename",
+            label: "File name",
+            type: "String",
+            sublabel:
+              "Name of the generated file. Interpolations <code>{{ }}</code> available",
+          },
+          {
             label: "Minimum role to access",
             name: "min_role",
             input_type: "select",
@@ -683,6 +690,7 @@ module.exports = {
           answer_field,
           min_role,
           model,
+          filename,
         },
       }) => {
         let prompt;
@@ -696,6 +704,10 @@ module.exports = {
             "llm_generate prompt formula"
           );
         else prompt = row[prompt_field];
+
+        const use_filename = filename
+          ? interpolate(filename, row, user, "llm_generate_image file name")
+          : "generated.png";
         const opts = { debugResult: true }; // response_format: "b64_json" };
 
         if (model) opts.model = model;
@@ -712,7 +724,7 @@ module.exports = {
         } else if (ans.b64_json) {
           const imgContents = Buffer.from(ans.b64_json, "base64");
           const file = await File.from_contents(
-            "generated.png",
+            use_filename,
             "image/png",
             imgContents,
             user?.id,
