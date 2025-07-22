@@ -1,6 +1,7 @@
 const Workflow = require("@saltcorn/data/models/workflow");
 const Form = require("@saltcorn/data/models/form");
 const File = require("@saltcorn/data/models/file");
+const User = require("@saltcorn/data/models/user");
 const FieldRepeat = require("@saltcorn/data/models/fieldrepeat");
 const Plugin = require("@saltcorn/data/models/plugin");
 const { domReady } = require("@saltcorn/markup/tags");
@@ -594,7 +595,20 @@ module.exports = {
     llm_generate_image: {
       description: "Generate image with AI based on a text prompt",
       requireRow: true,
-      configFields: ({ table, mode }) => {
+      configFields: async ({ table, mode }) => {
+        const roleOptions = (await User.get_roles()).map((r) => ({
+          value: r.id,
+          label: r.role,
+        }));
+        const commonFields = [
+          {
+            label: "Minimum role to access",
+            name: "min_role",
+            input_type: "select",
+            sublabel: "User must have this role or higher access image file",
+            options: roleOptions,
+          },
+        ];
         if (mode === "workflow") {
           return [
             {
@@ -620,6 +634,7 @@ module.exports = {
               sublabel: "Override default model name",
               type: "String",
             },
+            ...commonFields,
           ];
         } else if (table) {
           const textFields = table.fields
@@ -652,6 +667,7 @@ module.exports = {
               required: true,
               attributes: { options: fileFields },
             },
+            ...commonFields,
           ];
         }
       },
@@ -665,8 +681,7 @@ module.exports = {
           prompt_formula,
           prompt_template,
           answer_field,
-          override_config,
-          chat_history_field,
+          min_role,
           model,
         },
       }) => {
@@ -700,7 +715,8 @@ module.exports = {
             "generated.png",
             "image/png",
             imgContents,
-            user?.id
+            user?.id,
+            min_role || 1
           );
           upd[answer_field] = file.path_to_serve;
         }
