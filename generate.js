@@ -165,7 +165,16 @@ const getCompletion = async (config, opts) => {
 
 const getCompletionOpenAICompatible = async (
   { chatCompleteEndpoint, bearer, apiKey, model, responses_api, temperature },
-  { systemPrompt, prompt, debugResult, chat = [], api_key, endpoint, ...rest }
+  {
+    systemPrompt,
+    prompt,
+    debugResult,
+    debugCollector,
+    chat = [],
+    api_key,
+    endpoint,
+    ...rest
+  }
 ) => {
   const headers = {
     "Content-Type": "application/json",
@@ -281,6 +290,8 @@ const getCompletionOpenAICompatible = async (
         body
       )} to ${chatCompleteEndpoint} headers ${JSON.stringify(headers)}`
     );
+  if (debugCollector) debugCollector.request = body;
+
   const rawResponse = await fetch(chatCompleteEndpoint, {
     method: "POST",
     headers,
@@ -291,6 +302,8 @@ const getCompletionOpenAICompatible = async (
   if (debugResult)
     console.log("OpenAI response", JSON.stringify(results, null, 2));
   else getState().log(6, `OpenAI response ${JSON.stringify(results)}`);
+  if (debugCollector) debugCollector.response = results;
+
   if (results.error) throw new Error(`OpenAI error: ${results.error.message}`);
   if (responses_api) {
     const textOutput = results.output
@@ -341,6 +354,7 @@ const getImageGenOpenAICompatible = async (
     prompt,
     model,
     debugResult,
+    debugCollector,
     size,
     quality,
     n,
@@ -367,6 +381,7 @@ const getImageGenOpenAICompatible = async (
   if (response_format) body.response_format = response_format;
   if (n) body.n = n;
   if (debugResult) console.log("OpenAI image request", imageEndpoint, body);
+  if (debugCollector) debugCollector.request = body;
 
   const rawResponse = await fetch(imageEndpoint, {
     method: "POST",
@@ -374,6 +389,7 @@ const getImageGenOpenAICompatible = async (
     body: JSON.stringify(body),
   });
   const results = await rawResponse.json();
+  if (debugCollector) debugCollector.response = results;
   if (debugResult) console.log("OpenAI image response", results);
   if (results.error) throw new Error(`OpenAI error: ${results.error.message}`);
   return results?.data?.[0];
