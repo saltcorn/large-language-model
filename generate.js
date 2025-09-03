@@ -182,9 +182,10 @@ const getCompletionOpenAICompatible = async (
   };
   if (bearer) headers.Authorization = "Bearer " + bearer;
   if (apiKey) headers["api-key"] = apiKey;
+  const use_model = rest.model || model;
   const body = {
     //prompt: "How are you?",
-    model: rest.model || model,
+    model: use_model,
     ...rest,
   };
   if (rest.temperature || temperature) {
@@ -193,7 +194,18 @@ const getCompletionOpenAICompatible = async (
   } else if (rest.temperature === null) {
     delete body.temperature;
   } else if (typeof temperature === "undefined") {
-    body.temperature = 0.7;
+    if (
+      ![
+        "o1",
+        "o3",
+        "o3-mini",
+        "o4-mini",
+        "gtp-5",
+        "gtp-5-nano",
+        "gtp-5-mini",
+      ].includes(use_model)
+    )
+      body.temperature = 0.7;
   }
 
   if (responses_api) {
