@@ -14,9 +14,9 @@ const OPENAI_MODELS = [
   "o3",
   "o3-mini",
   "o4-mini",
-  "gtp-5",
-  "gtp-5-nano",
-  "gtp-5-mini",
+  "gpt-5",
+  "gpt-5-nano",
+  "gpt-5-mini",
 ];
 
 // https://github.com/ollama/ollama/blob/main/docs/faq.md#where-are-models-stored
