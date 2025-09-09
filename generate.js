@@ -310,6 +310,8 @@ const getCompletionOpenAICompatible = async (
     body: JSON.stringify(body),
   });
   if (rest.stream) {
+    // https://stackoverflow.com/a/75751803/19839414
+    // https://stackoverflow.com/a/57664622/19839414
     await new Promise((resolve, reject) => {
       rawResponse.body.on("readable", () => {
         let chunk;
