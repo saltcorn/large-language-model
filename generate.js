@@ -303,7 +303,7 @@ const getCompletionOpenAICompatible = async (
       )} to ${chatCompleteEndpoint} headers ${JSON.stringify(headers)}`
     );
   if (debugCollector) debugCollector.request = body;
-
+  const reqTimeStart = Date.now();
   const rawResponse = await fetch(chatCompleteEndpoint, {
     method: "POST",
     headers,
@@ -314,7 +314,10 @@ const getCompletionOpenAICompatible = async (
   if (debugResult)
     console.log("OpenAI response", JSON.stringify(results, null, 2));
   else getState().log(6, `OpenAI response ${JSON.stringify(results)}`);
-  if (debugCollector) debugCollector.response = results;
+  if (debugCollector) {
+    debugCollector.response = results;
+    debugCollector.response_time_ms = Date.now() - reqTimeStart;
+  }
 
   if (results.error) throw new Error(`OpenAI error: ${results.error.message}`);
   if (responses_api) {
