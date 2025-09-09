@@ -207,7 +207,7 @@ const getCompletionOpenAICompatible = async (
     )
       body.temperature = 0.7;
   }
-
+  if (body.stream) body.stream = !!body.stream;
   if (responses_api) {
     for (const tool of body.tools || []) {
       if (tool.type !== "function") continue;
@@ -309,6 +309,40 @@ const getCompletionOpenAICompatible = async (
     headers,
     body: JSON.stringify(body),
   });
+  if (rest.stream) {
+    await new Promise((resolve, reject) => {
+      rawResponse.body.on("readable", () => {
+        let chunk;
+        while (null !== (chunk = rawResponse.body.read())) {
+          let value = chunk.toString();
+          //console.log({value})
+          let dataDone = false;
+          let stashed = "";
+          const arr = value.split("\n");
+          arr.forEach((data) => {
+            if (data.length === 0) return; // ignore empty message
+            if (data.startsWith(":")) return; // ignore sse comment message
+            if (data === "data: [DONE]") {
+              dataDone = true;
+              resolve();
+              return;
+            }
+            //console.log("parsing this string as JSON: ", data.substring(6))
+            try {
+              const json = JSON.parse(stashed + data.substring(6));
+              stashed = "";
+              //console.log(json.choices);
+              rest.stream(json);
+            } catch {
+              stashed = data.substring(6);
+            }
+          });
+          if (dataDone) break;
+        }
+      });
+    });
+    return;
+  }
   const results = await rawResponse.json();
   //console.log("results", results);
   if (debugResult)
