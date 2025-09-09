@@ -310,6 +310,7 @@ const getCompletionOpenAICompatible = async (
     body: JSON.stringify(body),
   });
   let streamParts = [];
+  let streamToolCalls = null;
 
   if (rest.stream) {
     // https://stackoverflow.com/a/75751803/19839414
@@ -339,6 +340,15 @@ const getCompletionOpenAICompatible = async (
               //answer store
               if (json.choices?.[0]?.delta?.content)
                 streamParts.push(json.choices[0].delta.content);
+              if (json.choices?.[0]?.delta?.tool_calls) {
+                if (!streamToolCalls)
+                  streamToolCalls = json.choices?.[0]?.delta;
+                else
+                  json.choices?.[0]?.delta?.tool_calls.forEach((tc, ix) => {
+                    streamToolCalls.tool_calls[ix].function.arguments +=
+                      tc.function.arguments;
+                  });
+              }
             } catch {
               stashed = data.substring(6);
             }
@@ -347,7 +357,12 @@ const getCompletionOpenAICompatible = async (
         }
       });
     });
-    return streamParts.join("");
+    return streamToolCalls
+      ? {
+          content: streamParts.join(""),
+          tool_calls: streamToolCalls.tool_calls,
+        }
+      : streamParts.join("");
   }
   const results = await rawResponse.json();
   //console.log("results", results);
