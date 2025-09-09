@@ -309,6 +309,8 @@ const getCompletionOpenAICompatible = async (
     headers,
     body: JSON.stringify(body),
   });
+  let streamParts = [];
+
   if (rest.stream) {
     // https://stackoverflow.com/a/75751803/19839414
     // https://stackoverflow.com/a/57664622/19839414
@@ -317,7 +319,6 @@ const getCompletionOpenAICompatible = async (
         let chunk;
         while (null !== (chunk = rawResponse.body.read())) {
           let value = chunk.toString();
-          //console.log({value})
           let dataDone = false;
           let stashed = "";
           const arr = value.split("\n");
@@ -329,12 +330,15 @@ const getCompletionOpenAICompatible = async (
               resolve();
               return;
             }
-            //console.log("parsing this string as JSON: ", data.substring(6))
             try {
               const json = JSON.parse(stashed + data.substring(6));
               stashed = "";
-              //console.log(json.choices);
+              // callback
               rest.stream(json);
+
+              //answer store
+              if (json.choices?.[0]?.delta?.content)
+                streamParts.push(json.choices[0].delta.content);
             } catch {
               stashed = data.substring(6);
             }
@@ -343,7 +347,7 @@ const getCompletionOpenAICompatible = async (
         }
       });
     });
-    return;
+    return streamParts.join("");
   }
   const results = await rawResponse.json();
   //console.log("results", results);
