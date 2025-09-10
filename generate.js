@@ -357,6 +357,10 @@ const getCompletionOpenAICompatible = async (
         }
       });
     });
+    if (debugCollector) {
+      if (streamToolCalls) debugCollector.response = streamToolCalls;
+      debugCollector.response_time_ms = Date.now() - reqTimeStart;
+    }
     return streamToolCalls
       ? {
           content: streamParts.join(""),
