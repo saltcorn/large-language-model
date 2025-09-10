@@ -318,82 +318,78 @@ const getCompletionOpenAICompatible = async (
   if (rest.streamCallback) {
     // https://stackoverflow.com/a/75751803/19839414
     // https://stackoverflow.com/a/57664622/19839414
-    await new Promise((resolve, reject) => {
-      let dataDone = false;
-      let stashed = "";
 
-      const process_stream_data = (value) => {
-        const arr = value.split("\n");
-        arr.forEach((data) => {
-          if (data.length === 0) return; // ignore empty message
-          if (data.startsWith(":")) return; // ignore sse comment message
-          if (data === "data: [DONE]") {
-            dataDone = true;
-            resolve();
-            return;
-          }
-          try {
-            const json = JSON.parse(stashed + data.substring(6));
-            stashed = "";
-            //console.log(json.choices[0]);
+    let dataDone = false;
+    let stashed = "";
 
-            // callback
-
-            //answer store
-            if (json.choices?.[0]?.content)
-              streamParts.push(json.choices[0].content);
-            if (json.choices?.[0]?.delta?.content)
-              streamParts.push(json.choices[0].delta.content);
-            if (json.choices?.[0]?.delta?.tool_calls) {
-              if (!streamToolCalls) streamToolCalls = json.choices?.[0]?.delta;
-              else
-                json.choices?.[0]?.delta?.tool_calls.forEach((tc, ix) => {
-                  streamToolCalls.tool_calls[ix].function.arguments +=
-                    tc.function.arguments;
-                });
-            }
-            rest.streamCallback(json);
-          } catch (e) {
-            //console.error(e);
-            stashed = data.substring(6);
-          }
-        });
-      };
-      if (global.fetch) {
-        const reader = rawResponse.body
-          ?.pipeThrough(new TextDecoderStream())
-          .getReader();
-        if (!reader) return;
-        // eslint-disable-next-line no-constant-condition
-        (async () => {
-          while (!dataDone) {
-            // eslint-disable-next-line no-await-in-loop
-
-            const { value, done } = await reader.read();
-
-            if (done) {
-              dataDone = true;
-              resolve();
-              break;
-            }
-            process_stream_data(value);
-            if (dataDone) break;
-          }
-        })().catch((e) => {
-          //console.error(e);
+    const process_stream_data = (value, resolve) => {
+      const arr = value.split("\n");
+      arr.forEach((data) => {
+        if (data.length === 0) return; // ignore empty message
+        if (data.startsWith(":")) return; // ignore sse comment message
+        if (data === "data: [DONE]") {
           dataDone = true;
-          reject(e);
-        });
-      } else
+          if (resolve) resolve();
+          return;
+        }
+        try {
+          const json = JSON.parse(stashed + data.substring(6));
+          stashed = "";
+          //console.log(json.choices[0]);
+
+          // callback
+
+          //answer store
+          if (json.choices?.[0]?.content)
+            streamParts.push(json.choices[0].content);
+          if (json.choices?.[0]?.delta?.content)
+            streamParts.push(json.choices[0].delta.content);
+          if (json.choices?.[0]?.delta?.tool_calls) {
+            if (!streamToolCalls) streamToolCalls = json.choices?.[0]?.delta;
+            else
+              json.choices?.[0]?.delta?.tool_calls.forEach((tc, ix) => {
+                streamToolCalls.tool_calls[ix].function.arguments +=
+                  tc.function.arguments;
+              });
+          }
+          rest.streamCallback(json);
+        } catch (e) {
+          //console.error(e);
+          stashed = data.substring(6);
+        }
+      });
+    };
+    if (global.fetch) {
+      const reader = rawResponse.body
+        ?.pipeThrough(new TextDecoderStream())
+        .getReader();
+      if (!reader) return;
+      // eslint-disable-next-line no-constant-condition
+
+      while (!dataDone) {
+        // eslint-disable-next-line no-await-in-loop
+
+        const { value, done } = await reader.read();
+
+        if (done) {
+          dataDone = true;
+          break;
+        }
+        process_stream_data(value);
+        if (dataDone) break;
+      }
+    } else {
+      await new Promise((resolve, reject) => {
         rawResponse.body.on("readable", () => {
           let chunk;
           while (null !== (chunk = rawResponse.body.read())) {
             let value = chunk.toString();
-            process_stream_data(value);
+            process_stream_data(value, resolve);
             if (dataDone) break;
           }
         });
-    });
+      });
+    }
     if (debugCollector) {
       //TODO get the full response
       if (streamToolCalls) debugCollector.response = streamToolCalls;
