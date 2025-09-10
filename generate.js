@@ -363,8 +363,6 @@ const getCompletionOpenAICompatible = async (
       if (streamToolCalls) debugCollector.response = streamToolCalls;
       debugCollector.response_time_ms = Date.now() - reqTimeStart;
     }
-    console.log({ streamToolCalls, streamParts });
-
     return streamToolCalls
       ? {
           content: streamParts.join(""),
