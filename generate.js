@@ -335,7 +335,6 @@ const getCompletionOpenAICompatible = async (
               const json = JSON.parse(stashed + data.substring(6));
               stashed = "";
               // callback
-              rest.stream(json);
 
               //answer store
               if (json.choices?.[0]?.delta?.content)
@@ -349,7 +348,9 @@ const getCompletionOpenAICompatible = async (
                       tc.function.arguments;
                   });
               }
-            } catch {
+              rest.stream(json);
+            } catch (e) {
+              //console.error(e);
               stashed = data.substring(6);
             }
           });
@@ -362,6 +363,8 @@ const getCompletionOpenAICompatible = async (
       if (streamToolCalls) debugCollector.response = streamToolCalls;
       debugCollector.response_time_ms = Date.now() - reqTimeStart;
     }
+    console.log({ streamToolCalls, streamParts });
+
     return streamToolCalls
       ? {
           content: streamParts.join(""),
