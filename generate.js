@@ -207,7 +207,7 @@ const getCompletionOpenAICompatible = async (
     )
       body.temperature = 0.7;
   }
-  if (body.stream) body.stream = !!body.stream;
+  if (rest.streamCallback) body.strem = true;
   if (responses_api) {
     for (const tool of body.tools || []) {
       if (tool.type !== "function") continue;
@@ -312,7 +312,7 @@ const getCompletionOpenAICompatible = async (
   let streamParts = [];
   let streamToolCalls = null;
 
-  if (rest.stream) {
+  if (rest.streamCallback) {
     // https://stackoverflow.com/a/75751803/19839414
     // https://stackoverflow.com/a/57664622/19839414
     await new Promise((resolve, reject) => {
@@ -352,7 +352,7 @@ const getCompletionOpenAICompatible = async (
                       tc.function.arguments;
                   });
               }
-              rest.stream(json);
+              rest.streamCallback(json);
             } catch (e) {
               //console.error(e);
               stashed = data.substring(6);
