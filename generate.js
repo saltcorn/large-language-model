@@ -358,6 +358,7 @@ const getCompletionOpenAICompatible = async (
       });
     });
     if (debugCollector) {
+      //TODO get the full response
       if (streamToolCalls) debugCollector.response = streamToolCalls;
       debugCollector.response_time_ms = Date.now() - reqTimeStart;
     }
