@@ -334,9 +334,13 @@ const getCompletionOpenAICompatible = async (
             try {
               const json = JSON.parse(stashed + data.substring(6));
               stashed = "";
+              console.log(json.choices[0]);
+
               // callback
 
               //answer store
+              if (json.choices?.[0]?.content)
+                streamParts.push(json.choices[0].content);
               if (json.choices?.[0]?.delta?.content)
                 streamParts.push(json.choices[0].delta.content);
               if (json.choices?.[0]?.delta?.tool_calls) {
