@@ -1,4 +1,4 @@
-const fetch = require("node-fetch");
+const node_fetch = require("node-fetch");
 const util = require("util");
 const exec = util.promisify(require("child_process").exec);
 const db = require("@saltcorn/data/db");
@@ -304,7 +304,7 @@ const getCompletionOpenAICompatible = async (
     );
   if (debugCollector) debugCollector.request = body;
   const reqTimeStart = Date.now();
-  const rawResponse = await fetch(chatCompleteEndpoint, {
+  const rawResponse = await (global.fetch || node_fetch)(chatCompleteEndpoint, {
     method: "POST",
     headers,
     body: JSON.stringify(body),
@@ -463,7 +463,7 @@ const getImageGenOpenAICompatible = async (
   if (debugResult) console.log("OpenAI image request", imageEndpoint, body);
   if (debugCollector) debugCollector.request = body;
 
-  const rawResponse = await fetch(imageEndpoint, {
+  const rawResponse = await (global.fetch || node_fetch)(imageEndpoint, {
     method: "POST",
     headers,
     body: JSON.stringify(body),
@@ -492,7 +492,7 @@ const getEmbeddingOpenAICompatible = async (
     input: prompt,
   };
 
-  const rawResponse = await fetch(embeddingsEndpoint, {
+  const rawResponse = await (global.fetch || node_fetch)(embeddingsEndpoint, {
     method: "POST",
     headers,
     body: JSON.stringify(body),
