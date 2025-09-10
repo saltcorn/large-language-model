@@ -335,7 +335,7 @@ const getCompletionOpenAICompatible = async (
           try {
             const json = JSON.parse(stashed + data.substring(6));
             stashed = "";
-            console.log(json.choices[0]);
+            //console.log(json.choices[0]);
 
             // callback
 
