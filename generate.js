@@ -207,7 +207,10 @@ const getCompletionOpenAICompatible = async (
     )
       body.temperature = 0.7;
   }
-  if (rest.streamCallback) body.strem = true;
+  if (rest.streamCallback) {
+    body.strem = true;
+    delete body.streamCallback;
+  }
   if (responses_api) {
     for (const tool of body.tools || []) {
       if (tool.type !== "function") continue;
