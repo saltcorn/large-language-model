@@ -11,6 +11,8 @@ const { google } = require("googleapis");
 const Plugin = require("@saltcorn/data/models/plugin");
 const path = require("path");
 const { features, getState } = require("@saltcorn/data/db/state");
+const { generateText } = require("ai");
+const { createOpenAI } = require("@ai-sdk/openai");
 let ollamaMod;
 if (features.esm_plugins) ollamaMod = require("ollama");
 
@@ -97,6 +99,15 @@ const getImageGeneration = async (config, opts) => {
 
 const getCompletion = async (config, opts) => {
   switch (config.backend) {
+    case "AI SDK":
+      return await getCompletionAISDK(
+        {
+          provider: config.ai_sdk_provider,
+          apiKey: config.api_key,
+          model: opts?.model || config.model,
+        },
+        opts
+      );
     case "OpenAI":
       return await getCompletionOpenAICompatible(
         {
@@ -161,6 +172,71 @@ const getCompletion = async (config, opts) => {
     default:
       break;
   }
+};
+
+const getCompletionAISDK = async (
+  { apiKey, model, provider },
+  {
+    systemPrompt,
+    prompt,
+    debugResult,
+    debugCollector,
+    chat = [],
+    api_key,
+    endpoint,
+    ...rest
+  }
+) => {
+  const use_model_name = rest.model || model;
+  let model_obj;
+  switch (provider) {
+    case "OpenAI":
+      const openai = createOpenAI({ apiKey: api_key || apiKey });
+      model_obj = openai(use_model_name);
+      break;
+  }
+
+  const body = {
+    model: model_obj,
+    temperature: rest.temperature || 0.7,
+    messages: [
+      {
+        role: "system",
+        content: systemPrompt || "You are a helpful assistant.",
+      },
+      ...chat,
+      ...(prompt ? [{ role: "user", content: prompt }] : []),
+    ],
+  };
+  if (
+    provider === "OpenAI" &&
+    ![
+      "o1",
+      "o3",
+      "o3-mini",
+      "o4-mini",
+      "gpt-5",
+      "gpt-5-nano",
+      "gpt-5-mini",
+    ].includes(use_model_name)
+  )
+    delete body.temperature;
+
+  const debugRequest = { ...body, model: use_model_name };
+  if (debugResult) console.log("AI SDK request", debugRequest);
+  else getState().log(6, `OpenAI request ${JSON.stringify(debugRequest)} `);
+  if (debugCollector) debugCollector.request = debugRequest;
+  const reqTimeStart = Date.now();
+
+  const results = await generateText(body);
+  if (debugResult)
+    console.log("OpenAI response", JSON.stringify(results, null, 2));
+  else getState().log(6, `OpenAI response ${JSON.stringify(results)}`);
+  if (debugCollector) {
+    debugCollector.response = results;
+    debugCollector.response_time_ms = Date.now() - reqTimeStart;
+  }
+  return results.text;
 };
 
 const getCompletionOpenAICompatible = async (
