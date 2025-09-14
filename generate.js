@@ -210,7 +210,7 @@ const getCompletionAISDK = async (
   };
   if (
     provider === "OpenAI" &&
-    ![
+    [
       "o1",
       "o3",
       "o3-mini",
