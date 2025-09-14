@@ -252,7 +252,10 @@ const getCompletionAISDK = async (
     debugCollector.response = results;
     debugCollector.response_time_ms = Date.now() - reqTimeStart;
   }
-  return results.text;
+  const allToolCalls = results.steps.flatMap((step) => step.toolCalls);
+  if (allToolCalls.length) {
+    return { tool_calls: allToolCalls, content: results.text };
+  } else return results.text;
 };
 
 const getCompletionOpenAICompatible = async (
