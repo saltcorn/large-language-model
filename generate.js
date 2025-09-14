@@ -11,7 +11,7 @@ const { google } = require("googleapis");
 const Plugin = require("@saltcorn/data/models/plugin");
 const path = require("path");
 const { features, getState } = require("@saltcorn/data/db/state");
-const { generateText } = require("ai");
+const { generateText, tool, jsonSchema } = require("ai");
 const { createOpenAI } = require("@ai-sdk/openai");
 let ollamaMod;
 if (features.esm_plugins) ollamaMod = require("ollama");
@@ -175,7 +175,7 @@ const getCompletion = async (config, opts) => {
 };
 
 const getCompletionAISDK = async (
-  { apiKey, model, provider },
+  { apiKey, model, provider, temperature },
   {
     systemPrompt,
     prompt,
@@ -198,7 +198,6 @@ const getCompletionAISDK = async (
 
   const body = {
     model: model_obj,
-    temperature: rest.temperature || 0.7,
     messages: [
       {
         role: "system",
@@ -207,24 +206,41 @@ const getCompletionAISDK = async (
       ...chat,
       ...(prompt ? [{ role: "user", content: prompt }] : []),
     ],
+    ...rest,
   };
-  if (
-    provider === "OpenAI" &&
-    [
-      "o1",
-      "o3",
-      "o3-mini",
-      "o4-mini",
-      "gpt-5",
-      "gpt-5-nano",
-      "gpt-5-mini",
-    ].includes(use_model_name)
-  )
+  if (rest.temperature || temperature) {
+    const str_or_num = rest.temperature || temperature;
+    body.temperature = +str_or_num;
+  } else if (rest.temperature === null) {
     delete body.temperature;
+  } else if (typeof temperature === "undefined") {
+    if (
+      ![
+        "o1",
+        "o3",
+        "o3-mini",
+        "o4-mini",
+        "gpt-5",
+        "gpt-5-nano",
+        "gpt-5-mini",
+      ].includes(use_model_name)
+    )
+      body.temperature = 0.7;
+  }
+  if (body.tools) {
+    const prevTools = [...body.tools];
+    body.tools = {};
+    prevTools.forEach((t) => {
+      body.tools[t.function.name] = tool({
+        description: t.function.description,
+        inputSchema: jsonSchema(t.function.parameters),
+      });
+    });
+  }
 
   const debugRequest = { ...body, model: use_model_name };
-  if (debugResult) console.log("AI SDK request", debugRequest);
-  else getState().log(6, `OpenAI request ${JSON.stringify(debugRequest)} `);
+  console.log("AI SDK request", JSON.stringify(debugRequest, null, 2));
+  getState().log(6, `OpenAI request ${JSON.stringify(debugRequest)} `);
   if (debugCollector) debugCollector.request = debugRequest;
   const reqTimeStart = Date.now();
 
