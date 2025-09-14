@@ -207,7 +207,7 @@ const getCompletionOpenAICompatible = async (
     )
       body.temperature = 0.7;
   }
-  if (rest.streamCallback) {
+  if (rest.streamCallback && global.fetch) {
     body.stream = true;
     delete body.streamCallback;
   }
@@ -315,7 +315,7 @@ const getCompletionOpenAICompatible = async (
   let streamParts = [];
   let streamToolCalls = null;
 
-  if (rest.streamCallback) {
+  if (rest.streamCallback && body.stream) {
     // https://stackoverflow.com/a/75751803/19839414
     // https://stackoverflow.com/a/57664622/19839414
 
@@ -359,37 +359,26 @@ const getCompletionOpenAICompatible = async (
         }
       });
     };
-    if (global.fetch) {
-      const reader = rawResponse.body
-        ?.pipeThrough(new TextDecoderStream())
-        .getReader();
-      if (!reader) return;
-      // eslint-disable-next-line no-constant-condition
 
-      while (!dataDone) {
-        // eslint-disable-next-line no-await-in-loop
+    const reader = rawResponse.body
+      ?.pipeThrough(new TextDecoderStream())
+      .getReader();
+    if (!reader) return;
+    // eslint-disable-next-line no-constant-condition
 
-        const { value, done } = await reader.read();
+    while (!dataDone) {
+      // eslint-disable-next-line no-await-in-loop
 
-        if (done) {
-          dataDone = true;
-          break;
-        }
-        process_stream_data(value);
-        if (dataDone) break;
+      const { value, done } = await reader.read();
+
+      if (done) {
+        dataDone = true;
+        break;
       }
-    } else {
-      await new Promise((resolve, reject) => {
-        rawResponse.body.on("readable", () => {
-          let chunk;
-          while (null !== (chunk = rawResponse.body.read())) {
-            let value = chunk.toString();
-            process_stream_data(value, resolve);
-            if (dataDone) break;
-          }
-        });
-      });
+      process_stream_data(value);
+      if (dataDone) break;
     }
+
     if (debugCollector) {
       //TODO get the full response
       if (streamToolCalls) debugCollector.response = streamToolCalls;
