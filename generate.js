@@ -375,8 +375,8 @@ const getCompletionOpenAICompatible = async (
         dataDone = true;
         break;
       }
-      if (value.error) {
-        throw new Error(value.error);
+      if (typeof value === "string" && value.startsWith('{\n  "error": {')) {
+        throw new Error(value);
       }
       process_stream_data(value);
       if (dataDone) break;
