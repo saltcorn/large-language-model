@@ -239,7 +239,8 @@ const getCompletionAISDK = async (
   }
 
   const debugRequest = { ...body, model: use_model_name };
-  console.log("AI SDK request", JSON.stringify(debugRequest, null, 2));
+  if (debugResult)
+    console.log("AI SDK request", JSON.stringify(debugRequest, null, 2));
   getState().log(6, `OpenAI request ${JSON.stringify(debugRequest)} `);
   if (debugCollector) debugCollector.request = debugRequest;
   const reqTimeStart = Date.now();
@@ -253,8 +254,14 @@ const getCompletionAISDK = async (
     debugCollector.response_time_ms = Date.now() - reqTimeStart;
   }
   const allToolCalls = results.steps.flatMap((step) => step.toolCalls);
+
   if (allToolCalls.length) {
-    return { tool_calls: allToolCalls, content: results.text };
+    return {
+      tool_calls: allToolCalls,
+      content: results.text,
+      messages: results.response.messages,
+      ai_sdk: true,
+    };
   } else return results.text;
 };
 
