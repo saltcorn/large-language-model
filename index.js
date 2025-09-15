@@ -67,8 +67,56 @@ ${domReady(`
                     "Local Ollama",
                     ...(isRoot ? ["Local llama.cpp"] : []),
                     "Google Vertex AI",
+                    "AI SDK",
                   ],
                   onChange: "backendChange(this)",
+                },
+              },
+              {
+                name: "ai_sdk_provider",
+                label: "Provider", //gpt-3.5-turbo
+                type: "String",
+                required: true,
+                showIf: { backend: "AI SDK" },
+                attributes: {
+                  options: ["OpenAI"],
+                },
+              },
+              {
+                name: "api_key",
+                label: "API key",
+                type: "String",
+                required: true,
+                fieldview: "password",
+                showIf: { backend: "AI SDK", ai_sdk_provider: "OpenAI" },
+              },
+              {
+                name: "model",
+                label: "Model", //gpt-3.5-turbo
+                type: "String",
+                required: true,
+                showIf: { backend: "AI SDK" },
+                attributes: {
+                  calcOptions: ["ai_sdk_provider", { OpenAI: OPENAI_MODELS }],
+                },
+              },
+              {
+                name: "embed_model",
+                label: "Embedding model", //gpt-3.5-turbo
+                type: "String",
+                required: true,
+                showIf: { backend: "AI SDK" },
+                attributes: {
+                  calcOptions: [
+                    "ai_sdk_provider",
+                    {
+                      OpenAI: [
+                        "text-embedding-3-small",
+                        "text-embedding-3-large",
+                        "text-embedding-ada-002",
+                      ],
+                    },
+                  ],
                 },
               },
               {

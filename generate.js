@@ -11,11 +11,29 @@ const { google } = require("googleapis");
 const Plugin = require("@saltcorn/data/models/plugin");
 const path = require("path");
 const { features, getState } = require("@saltcorn/data/db/state");
+const {
+  generateText,
+  streamText,
+  tool,
+  jsonSchema,
+  embed,
+  embedMany,
+} = require("ai");
+const { createOpenAI } = require("@ai-sdk/openai");
 let ollamaMod;
 if (features.esm_plugins) ollamaMod = require("ollama");
 
 const getEmbedding = async (config, opts) => {
   switch (config.backend) {
+    case "AI SDK":
+      return await getEmbeddingAISDK(
+        {
+          provider: config.ai_sdk_provider,
+          apiKey: config.api_key,
+          embed_model: opts?.embed_model || config.embed_model || config.model,
+        },
+        opts
+      );
     case "OpenAI":
       return await getEmbeddingOpenAICompatible(
         {
@@ -97,6 +115,15 @@ const getImageGeneration = async (config, opts) => {
 
 const getCompletion = async (config, opts) => {
   switch (config.backend) {
+    case "AI SDK":
+      return await getCompletionAISDK(
+        {
+          provider: config.ai_sdk_provider,
+          apiKey: config.api_key,
+          model: opts?.model || config.model,
+        },
+        opts
+      );
     case "OpenAI":
       return await getCompletionOpenAICompatible(
         {
@@ -161,6 +188,104 @@ const getCompletion = async (config, opts) => {
     default:
       break;
   }
+};
+
+const getCompletionAISDK = async (
+  { apiKey, model, provider, temperature },
+  {
+    systemPrompt,
+    prompt,
+    debugResult,
+    debugCollector,
+    chat = [],
+    api_key,
+    endpoint,
+    ...rest
+  }
+) => {
+  const use_model_name = rest.model || model;
+  let model_obj;
+  switch (provider) {
+    case "OpenAI":
+      const openai = createOpenAI({ apiKey: api_key || apiKey });
+      model_obj = openai(use_model_name);
+      break;
+  }
+
+  const body = {
+    model: model_obj,
+    messages: [
+      {
+        role: "system",
+        content: systemPrompt || "You are a helpful assistant.",
+      },
+      ...chat,
+      ...(prompt ? [{ role: "user", content: prompt }] : []),
+    ],
+    ...rest,
+  };
+  if (rest.temperature || temperature) {
+    const str_or_num = rest.temperature || temperature;
+    body.temperature = +str_or_num;
+  } else if (rest.temperature === null) {
+    delete body.temperature;
+  } else if (typeof temperature === "undefined") {
+    if (
+      ![
+        "o1",
+        "o3",
+        "o3-mini",
+        "o4-mini",
+        "gpt-5",
+        "gpt-5-nano",
+        "gpt-5-mini",
+      ].includes(use_model_name)
+    )
+      body.temperature = 0.7;
+  }
+  if (body.tools) {
+    const prevTools = [...body.tools];
+    body.tools = {};
+    prevTools.forEach((t) => {
+      body.tools[t.function.name] = tool({
+        description: t.function.description,
+        inputSchema: jsonSchema(t.function.parameters),
+      });
+    });
+  }
+
+  const debugRequest = { ...body, model: use_model_name };
+  if (debugResult)
+    console.log("AI SDK request", JSON.stringify(debugRequest, null, 2));
+  getState().log(6, `OpenAI request ${JSON.stringify(debugRequest)} `);
+  if (debugCollector) debugCollector.request = debugRequest;
+  const reqTimeStart = Date.now();
+
+  let results;
+  if (rest.streamCallback) {
+    delete body.streamCallback;
+    results = await streamText(body);
+    for await (const textPart of results.textStream) {
+      rest.streamCallback(textPart);
+    }
+  } else results = await generateText(body);
+  if (debugResult)
+    console.log("OpenAI response", JSON.stringify(results, null, 2));
+  else getState().log(6, `OpenAI response ${JSON.stringify(results)}`);
+  if (debugCollector) {
+    debugCollector.response = results;
+    debugCollector.response_time_ms = Date.now() - reqTimeStart;
+  }
+  const allToolCalls = (await results.steps).flatMap((step) => step.toolCalls);
+
+  if (allToolCalls.length) {
+    return {
+      tool_calls: allToolCalls,
+      content: await results.text,
+      messages: (await results.response).messages,
+      ai_sdk: true,
+    };
+  } else return results.text;
 };
 
 const getCompletionOpenAICompatible = async (
@@ -507,7 +632,6 @@ const getEmbeddingOpenAICompatible = async (
   if (bearer) headers.Authorization = "Bearer " + bearer;
   if (apiKey) headers["api-key"] = apiKey;
   const body = {
-    //prompt: "How are you?",
     model: model || embed_model || "text-embedding-3-small",
     input: prompt,
   };
@@ -523,6 +647,36 @@ const getEmbeddingOpenAICompatible = async (
   if (results.error) throw new Error(`OpenAI error: ${results.error.message}`);
   if (Array.isArray(prompt)) return results?.data?.map?.((d) => d?.embedding);
   return results?.data?.[0]?.embedding;
+};
+
+const getEmbeddingAISDK = async (config, { prompt, model, debugResult }) => {
+  const { provider, apiKey, embed_model } = config;
+  let model_obj,
+    providerOptions = {};
+  const model_name = model || embed_model;
+
+  switch (provider) {
+    case "OpenAI":
+      const openai = createOpenAI({ apiKey: apiKey });
+      model_obj = openai.textEmbeddingModel(
+        model_name || "text-embedding-3-small"
+      );
+      //providerOptions.openai = {};
+      break;
+  }
+  const body = {
+    model: model_obj,
+    providerOptions,
+  };
+  if (Array.isArray(prompt)) {
+    body.values = prompt
+    const { embeddings } = await embedMany(body);
+    return embeddings;
+  } else {
+    body.value = prompt
+    const { embedding } = await embed(body);
+    return embedding;
+  }
 };
 
 const updatePluginTokenCfg = async (credentials) => {
