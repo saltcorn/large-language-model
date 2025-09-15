@@ -11,7 +11,7 @@ const { google } = require("googleapis");
 const Plugin = require("@saltcorn/data/models/plugin");
 const path = require("path");
 const { features, getState } = require("@saltcorn/data/db/state");
-const { generateText, tool, jsonSchema } = require("ai");
+const { generateText, streamText, tool, jsonSchema } = require("ai");
 const { createOpenAI } = require("@ai-sdk/openai");
 let ollamaMod;
 if (features.esm_plugins) ollamaMod = require("ollama");
@@ -245,7 +245,14 @@ const getCompletionAISDK = async (
   if (debugCollector) debugCollector.request = debugRequest;
   const reqTimeStart = Date.now();
 
-  const results = await generateText(body);
+  let results;
+  if (rest.streamCallback) {
+    delete body.streamCallback;
+    results = await streamText(body);
+    for await (const textPart of results.textStream) {
+      rest.streamCallback(textPart);
+    }
+  } else results = await generateText(body);
   if (debugResult)
     console.log("OpenAI response", JSON.stringify(results, null, 2));
   else getState().log(6, `OpenAI response ${JSON.stringify(results)}`);
@@ -253,13 +260,13 @@ const getCompletionAISDK = async (
     debugCollector.response = results;
     debugCollector.response_time_ms = Date.now() - reqTimeStart;
   }
-  const allToolCalls = results.steps.flatMap((step) => step.toolCalls);
+  const allToolCalls = (await results.steps).flatMap((step) => step.toolCalls);
 
   if (allToolCalls.length) {
     return {
       tool_calls: allToolCalls,
-      content: results.text,
-      messages: results.response.messages,
+      content: await results.text,
+      messages: (await results.response).messages,
       ai_sdk: true,
     };
   } else return results.text;
