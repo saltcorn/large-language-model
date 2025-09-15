@@ -11,13 +11,29 @@ const { google } = require("googleapis");
 const Plugin = require("@saltcorn/data/models/plugin");
 const path = require("path");
 const { features, getState } = require("@saltcorn/data/db/state");
-const { generateText, streamText, tool, jsonSchema } = require("ai");
+const {
+  generateText,
+  streamText,
+  tool,
+  jsonSchema,
+  embed,
+  embedMany,
+} = require("ai");
 const { createOpenAI } = require("@ai-sdk/openai");
 let ollamaMod;
 if (features.esm_plugins) ollamaMod = require("ollama");
 
 const getEmbedding = async (config, opts) => {
   switch (config.backend) {
+    case "AI SDK":
+      return await getEmbeddingAISDK(
+        {
+          provider: config.ai_sdk_provider,
+          apiKey: config.api_key,
+          embed_model: opts?.embed_model || config.embed_model || config.model,
+        },
+        opts
+      );
     case "OpenAI":
       return await getEmbeddingOpenAICompatible(
         {
@@ -616,7 +632,6 @@ const getEmbeddingOpenAICompatible = async (
   if (bearer) headers.Authorization = "Bearer " + bearer;
   if (apiKey) headers["api-key"] = apiKey;
   const body = {
-    //prompt: "How are you?",
     model: model || embed_model || "text-embedding-3-small",
     input: prompt,
   };
@@ -632,6 +647,36 @@ const getEmbeddingOpenAICompatible = async (
   if (results.error) throw new Error(`OpenAI error: ${results.error.message}`);
   if (Array.isArray(prompt)) return results?.data?.map?.((d) => d?.embedding);
   return results?.data?.[0]?.embedding;
+};
+
+const getEmbeddingAISDK = async (config, { prompt, model, debugResult }) => {
+  const { provider, apiKey, embed_model } = config;
+  let model_obj,
+    providerOptions = {};
+  const model_name = model || embed_model;
+
+  switch (provider) {
+    case "OpenAI":
+      const openai = createOpenAI({ apiKey: apiKey });
+      model_obj = openai.textEmbeddingModel(
+        model_name || "text-embedding-3-small"
+      );
+      //providerOptions.openai = {};
+      break;
+  }
+  const body = {
+    model: model_obj,
+    providerOptions,
+  };
+  if (Array.isArray(prompt)) {
+    body.values = prompt
+    const { embeddings } = await embedMany(body);
+    return embeddings;
+  } else {
+    body.value = prompt
+    const { embedding } = await embed(body);
+    return embedding;
+  }
 };
 
 const updatePluginTokenCfg = async (credentials) => {
