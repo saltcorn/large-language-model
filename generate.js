@@ -213,6 +213,7 @@ const getCompletionAISDK = async (
   }
 
   const body = {
+    ...rest,
     model: model_obj,
     messages: [
       {
@@ -222,7 +223,6 @@ const getCompletionAISDK = async (
       ...chat,
       ...(prompt ? [{ role: "user", content: prompt }] : []),
     ],
-    ...rest,
   };
   if (rest.temperature || temperature) {
     const str_or_num = rest.temperature || temperature;
@@ -669,11 +669,11 @@ const getEmbeddingAISDK = async (config, { prompt, model, debugResult }) => {
     providerOptions,
   };
   if (Array.isArray(prompt)) {
-    body.values = prompt
+    body.values = prompt;
     const { embeddings } = await embedMany(body);
     return embeddings;
   } else {
-    body.value = prompt
+    body.value = prompt;
     const { embedding } = await embed(body);
     return embedding;
   }
