@@ -828,6 +828,13 @@ module.exports = {
                 options: ["string", "integer", "number", "boolean"],
               },
             },
+            {
+              name: "options",
+              label: "Options",
+              type: "String",
+              sublabel: "Optional. Comma-separated list of values",
+              showIf: { type: "string" },
+            },
           ],
         });
 
@@ -943,6 +950,10 @@ module.exports = {
             type: field.type,
             description: field.description,
           };
+          if (field.type === "string" && field.options)
+            fieldArgs[field.name].enum = field.options
+              .split(",")
+              .map((s) => s.trim());
         });
         const argObj = { type: "object", properties: fieldArgs };
         const args = {
