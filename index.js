@@ -809,6 +809,7 @@ module.exports = {
             {
               name: "name",
               label: "Name",
+              class: "validate-identifier",
               sublabel: "The field name, as a valid JavaScript identifier",
               type: "String",
               required: true,
@@ -980,9 +981,11 @@ module.exports = {
           ...opts,
           ...toolargs,
         });
-        const ans = JSON.parse(compl.tool_calls[0].function.arguments)[
-          answer_field
-        ];
+        console.log(JSON.stringify(compl, null, 2));
+
+        const ans = compl.tool_calls[0].input
+          ? compl.tool_calls[0].input[answer_field]
+          : JSON.parse(compl.tool_calls[0].function.arguments)[answer_field];
         const upd = { [answer_field]: ans };
         if (chat_history_field) {
           upd[chat_history_field] = [
