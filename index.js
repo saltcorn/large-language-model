@@ -907,6 +907,12 @@ module.exports = {
             type: "String",
           },
           {
+            name: "model",
+            label: "Model",
+            sublabel: "Override default model name",
+            type: "String",
+          },
+          {
             input_type: "section_header",
             label: "JSON fields to generate",
           },
@@ -927,11 +933,13 @@ module.exports = {
           answer_field,
           override_config,
           chat_history_field,
+          model,
         },
       }) => {
         let prompt = interpolate(prompt_template, row, user);
 
         const opts = {};
+        if (model) opts.model = model;
         if (override_config) {
           const altcfg = config.altconfigs.find(
             (c) => c.name === override_config
