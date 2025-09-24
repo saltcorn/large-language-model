@@ -922,7 +922,7 @@ module.exports = {
         configuration: {
           prompt_template,
           fields,
-          mulitple,
+          multiple,
           gen_description,
           answer_field,
           override_config,
@@ -958,7 +958,7 @@ module.exports = {
         });
         const argObj = { type: "object", properties: fieldArgs };
         const args = {
-          [answer_field]: mulitple ? { type: "array", items: argObj } : argObj,
+          [answer_field]: multiple ? { type: "array", items: argObj } : argObj,
         };
         const expert_function = {
           type: "function",
