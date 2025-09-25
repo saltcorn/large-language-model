@@ -821,6 +821,11 @@ module.exports = {
               type: "String",
             },
             {
+              label: "Required",
+              name: "required",
+              type: "Bool",
+            },
+            {
               name: "type",
               label: "Type",
               type: "String",
@@ -954,17 +959,20 @@ module.exports = {
           history = row[chat_history_field];
         }
         const fieldArgs = {};
+        const required = [];
         (fields || []).forEach((field) => {
           fieldArgs[field.name] = {
             type: field.type,
             description: field.description,
           };
+          if (field.required) required.push(field.name);
           if (field.type === "string" && field.options)
             fieldArgs[field.name].enum = field.options
               .split(",")
               .map((s) => s.trim());
         });
         const argObj = { type: "object", properties: fieldArgs };
+        if (required.length) argObj.required = required;
         const args = {
           [answer_field]: multiple ? { type: "array", items: argObj } : argObj,
         };
