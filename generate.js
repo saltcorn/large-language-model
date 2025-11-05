@@ -211,6 +211,21 @@ const getCompletionAISDK = async (
       model_obj = openai(use_model_name);
       break;
   }
+  const modifyChat = (chat) => {
+    const f = (c) => {
+      if (c.type === "image_url")
+        return {
+          type: "image",
+          image: c.image_url?.url || c.image?.url || c.image_url || c.image,
+        };
+      else return c;
+    };
+    return {
+      ...chat,
+      ...(Array.isArray(chat.content) ? { content: chat.content.map(f) } : {}),
+    };
+  };
+  const newChat = chat.map(modifyChat);
 
   const body = {
     ...rest,
@@ -220,7 +235,7 @@ const getCompletionAISDK = async (
         role: "system",
         content: systemPrompt || "You are a helpful assistant.",
       },
-      ...chat,
+      ...newChat,
       ...(prompt ? [{ role: "user", content: prompt }] : []),
     ],
   };
