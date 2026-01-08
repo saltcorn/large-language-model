@@ -9,6 +9,7 @@ const {
 } = require("@google-cloud/aiplatform");
 const { google } = require("googleapis");
 const Plugin = require("@saltcorn/data/models/plugin");
+const File = require("@saltcorn/data/models/file");
 const path = require("path");
 const { features, getState } = require("@saltcorn/data/db/state");
 const {
@@ -18,6 +19,7 @@ const {
   jsonSchema,
   embed,
   embedMany,
+  experimental_transcribe,
 } = require("ai");
 const { createOpenAI } = require("@ai-sdk/openai");
 let ollamaMod;
@@ -113,6 +115,37 @@ const getImageGeneration = async (config, opts) => {
   }
 };
 
+const getAudioTranscription = async (
+  { backend, apiKey, model, provider, ai_sdk_provider },
+  opts
+) => {
+  switch (backend) {
+    case "AI SDK":
+      const prov_obj =
+        //openai(())
+        getAiSdkModel({
+          provider: ai_sdk_provider,
+          api_key: opts?.api_key || apiKey,
+          model_name: opts?.model || model,
+        });
+      console.log({ prov_obj });
+
+      const audio =
+        opts.url ||
+        (typeof opts.file === "string"
+          ? await (await File.findOne(opts.file)).get_contents()
+          : await opts.file.get_contents());
+      const transcript = await experimental_transcribe({
+        model: prov_obj.transcription("whisper-1"),
+        audio,
+      });
+
+      return transcript;
+    default:
+      throw new Error("Audio transcription not implemented for this backend");
+  }
+};
+
 const getCompletion = async (config, opts) => {
   switch (config.backend) {
     case "AI SDK":
@@ -190,6 +223,16 @@ const getCompletion = async (config, opts) => {
   }
 };
 
+const getAiSdkModel = ({ provider, api_key, model_name }) => {
+  switch (provider) {
+    case "OpenAI":
+      const openai = createOpenAI({ apiKey: api_key });
+      return openai(model_name);
+    default:
+      throw new Error("Provider not found: " + provider);
+  }
+};
+
 const getCompletionAISDK = async (
   { apiKey, model, provider, temperature },
   {
@@ -204,13 +247,11 @@ const getCompletionAISDK = async (
   }
 ) => {
   const use_model_name = rest.model || model;
-  let model_obj;
-  switch (provider) {
-    case "OpenAI":
-      const openai = createOpenAI({ apiKey: api_key || apiKey });
-      model_obj = openai(use_model_name);
-      break;
-  }
+  let model_obj = getAiSdkModel({
+    model_name: use_model_name,
+    api_key: api_key || apiKey,
+    provider,
+  });
   const modifyChat = (chat) => {
     const f = (c) => {
       if (c.type === "image_url")
@@ -864,4 +905,9 @@ const getEmbeddingGoogleVertex = async (config, opts, oauth2Client) => {
   return embeddings;
 };
 
-module.exports = { getCompletion, getEmbedding, getImageGeneration };
+module.exports = {
+  getCompletion,
+  getEmbedding,
+  getImageGeneration,
+  getAudioTranscription,
+};

@@ -10,6 +10,7 @@ const {
   getCompletion,
   getEmbedding,
   getImageGeneration,
+  getAudioTranscription,
 } = require("./generate");
 const { OPENAI_MODELS } = require("./constants.js");
 const { eval_expression } = require("@saltcorn/data/models/expression");
@@ -394,6 +395,15 @@ const functions = (config) => {
     llm_embedding: {
       run: async (prompt, opts) => {
         const result = await getEmbedding(config, { prompt, ...opts });
+        return result;
+      },
+      isAsync: true,
+      description: "Get vector embedding",
+      arguments: [{ name: "prompt", type: "String" }],
+    },
+    llm_transcribe: {
+      run: async (opts) => {
+        const result = await getAudioTranscription(config, opts);
         return result;
       },
       isAsync: true,
