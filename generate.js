@@ -116,7 +116,7 @@ const getImageGeneration = async (config, opts) => {
 };
 
 const getAudioTranscription = async (
-  { backend, apiKey, api_key, model, provider, ai_sdk_provider },
+  { backend, apiKey, api_key, provider, ai_sdk_provider },
   opts
 ) => {
   switch (backend) {
@@ -130,9 +130,18 @@ const getAudioTranscription = async (
           : typeof opts.file === "string"
           ? await (await File.findOne(opts.file)).get_contents()
           : await opts.file.get_contents());
+      const extra = {};
+      if (opts.prompt)
+        extra.providerOptions = {
+          openai: {
+            prompt: opts.prompt,
+            //response_format: "text",
+          },
+        };
       const transcript = await experimental_transcribe({
-        model: prov_obj.transcription("whisper-1"),
+        model: prov_obj.transcription(opts?.model || "whisper-1"),
         audio,
+        ...extra,
       });
 
       return transcript;

@@ -650,6 +650,128 @@ module.exports = {
         else await table.updateRow(upd, row[table.pk_name]);
       },
     },
+    llm_transcribe_audio: {
+      description: "Generate text from audio file",
+      requireRow: true,
+      configFields: ({ table, mode }) => {
+        const override_fields =
+          config.backend === "OpenAI-compatible API" &&
+          (config.altconfigs || []).filter((c) => c.name).length
+            ? [
+                {
+                  name: "override_config",
+                  label: "Alternative LLM configuration",
+                  type: "String",
+                  attributes: { options: config.altconfigs.map((c) => c.name) },
+                },
+              ]
+            : [];
+
+        if (mode === "workflow") {
+          return [
+            {
+              name: "audio_file_field",
+              label: "Audio file variable",
+              sublabel: "Set the generated answer to this context variable",
+              type: "String",
+              required: true,
+            },
+            {
+              name: "answer_field",
+              label: "Response variable",
+              sublabel: "Set the generated response object to this context variable. The subfield <code>text</code> holds the string transcription",
+              type: "String",
+              required: true,
+            },
+            {
+              name: "model",
+              label: "The model name, for example <code>whisper-1</code>",
+              type: "String",
+              required: true,
+            },
+            {
+              name: "prompt_template",
+              label: "Prompt",
+              sublabel:
+                "Additional prompt text (only some models). Use interpolations {{ }} to access variables in the context",
+              type: "String",
+              fieldview: "textarea",
+            },
+
+            //...override_fields,
+          ];
+        } else if (table) {
+          const textFields = table.fields
+            .filter((f) => f.type?.sql_name === "text")
+            .map((f) => f.name);
+          const fileFields = table.fields
+            .filter((f) => f.type === "File")
+            .map((f) => f.name);
+
+          return [
+            {
+              name: "audio_file_field",
+              label: "Audio file variable",
+              sublabel: "Set the generated answer to this context variable",
+              type: "String",
+              required: true,
+              attributes: { options: fileFields },
+            },
+            {
+              name: "answer_field",
+              label: "Answer field",
+              sublabel: "Output field will be set to the generated answer",
+              type: "String",
+              required: true,
+              attributes: { options: textFields },
+            },
+            {
+              name: "model",
+              label: "The model name, for example <code>whisper-1</code>",
+              type: "String",
+              required: true,
+            },
+            {
+              name: "prompt_template",
+              label: "Prompt",
+              sublabel:
+                "Additional prompt text (only some models). Use interpolations {{ }} to access variables in the row",
+              type: "String",
+              fieldview: "textarea",
+            },
+            //...override_fields,
+          ];
+        }
+      },
+      run: async ({
+        row,
+        table,
+        user,
+        mode,
+        configuration: {
+          audio_file_field,
+          prompt_template,
+          answer_field,
+          //override_config,
+          model,
+        },
+      }) => {
+        const opts = { file: row[audio_file_field] };
+        if (prompt_template)
+          opts.prompt = interpolate(prompt_template, row, user);
+
+        if (model) opts.model = model;
+
+        const ans = await getAudioTranscription(config, opts);
+
+        if (mode === "workflow") return { [answer_field]: ans };
+        else
+          await table.updateRow(
+            { [answer_field]: ans.text },
+            row[table.pk_name]
+          );
+      },
+    },
     llm_generate_image: {
       description: "Generate image with AI based on a text prompt",
       requireRow: true,
