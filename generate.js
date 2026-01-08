@@ -21,7 +21,7 @@ const {
   embedMany,
   experimental_transcribe,
 } = require("ai");
-const { createOpenAI } = require("@ai-sdk/openai");
+const { openai, createOpenAI } = require("@ai-sdk/openai");
 let ollamaMod;
 if (features.esm_plugins) ollamaMod = require("ollama");
 
@@ -116,20 +116,13 @@ const getImageGeneration = async (config, opts) => {
 };
 
 const getAudioTranscription = async (
-  { backend, apiKey, model, provider, ai_sdk_provider },
+  { backend, apiKey, api_key, model, provider, ai_sdk_provider },
   opts
 ) => {
   switch (backend) {
     case "AI SDK":
-      const prov_obj =
-        //openai(())
-        getAiSdkModel({
-          provider: ai_sdk_provider,
-          api_key: opts?.api_key || apiKey,
-          model_name: opts?.model || model,
-        });
-      console.log({ prov_obj });
-
+      const api_Key = opts?.api_key || api_key || apiKey;
+      const prov_obj = createOpenAI({ apiKey: api_Key });
       const audio =
         opts.url ||
         (typeof opts.file === "string"
