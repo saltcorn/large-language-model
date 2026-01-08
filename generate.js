@@ -125,7 +125,9 @@ const getAudioTranscription = async (
       const prov_obj = createOpenAI({ apiKey: api_Key });
       const audio =
         opts.url ||
-        (typeof opts.file === "string"
+        (Buffer.isBuffer(opts.file)
+          ? opts.file
+          : typeof opts.file === "string"
           ? await (await File.findOne(opts.file)).get_contents()
           : await opts.file.get_contents());
       const transcript = await experimental_transcribe({
