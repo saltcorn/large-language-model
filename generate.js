@@ -11,6 +11,7 @@ const { google } = require("googleapis");
 const Plugin = require("@saltcorn/data/models/plugin");
 const File = require("@saltcorn/data/models/file");
 const path = require("path");
+const fs = require("fs");
 const { features, getState } = require("@saltcorn/data/db/state");
 const {
   generateText,
@@ -21,7 +22,8 @@ const {
   embedMany,
   experimental_transcribe,
 } = require("ai");
-const { openai, createOpenAI } = require("@ai-sdk/openai");
+const { createOpenAI } = require("@ai-sdk/openai");
+const OpenAI = require("openai");
 let ollamaMod;
 if (features.esm_plugins) ollamaMod = require("ollama");
 
@@ -120,6 +122,32 @@ const getAudioTranscription = async (
   opts
 ) => {
   switch (backend) {
+    case "OpenAI":
+      const client = new OpenAI({
+        apiKey: opts?.api_key || api_key || apiKey,
+      });
+      const fp = opts.file.location
+        ? opts.file.location
+        : typeof opts.file === "string"
+        ? await (
+            await File.findOne(opts.file)
+          ).location
+        : null;
+      const model = opts?.model || "whisper-1";
+      const diarize = model === "gpt-4o-transcribe-diarize";
+      const transcript1 = await client.audio.transcriptions.create({
+        file: Buffer.isBuffer(opts.file) ? opts.file : fs.createReadStream(fp),
+
+        model,
+        ...(diarize
+          ? {
+              response_format: "diarized_json",
+              chunking_strategy: "auto",
+            }
+          : {}),
+      });
+      return transcript1;
+
     case "AI SDK":
       const api_Key = opts?.api_key || api_key || apiKey;
       const prov_obj = createOpenAI({ apiKey: api_Key });

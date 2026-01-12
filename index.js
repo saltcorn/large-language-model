@@ -687,7 +687,6 @@ module.exports = {
               name: "model",
               label: "The model name, for example <code>whisper-1</code>",
               type: "String",
-              required: true,
             },
             {
               name: "prompt_template",
@@ -729,7 +728,6 @@ module.exports = {
               name: "model",
               label: "The model name, for example <code>whisper-1</code>",
               type: "String",
-              required: true,
             },
             {
               name: "prompt_template",
