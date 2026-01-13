@@ -24,6 +24,8 @@ const {
 } = require("ai");
 const { createOpenAI } = require("@ai-sdk/openai");
 const OpenAI = require("openai");
+const { ElevenLabsClient } = require("@elevenlabs/elevenlabs-js");
+
 let ollamaMod;
 if (features.esm_plugins) ollamaMod = require("ollama");
 
@@ -121,7 +123,20 @@ const getAudioTranscription = async (
   { backend, apiKey, api_key, provider, ai_sdk_provider },
   opts
 ) => {
-  switch (backend) {
+  switch (opts.backend || backend) {
+    case "ElevenLabs":
+      const transcription = await new ElevenLabsClient({
+        apiKey: opts?.api_key || api_key || apiKey,
+      }).speechToText.convert({
+        file: await (await File.findOne(opts.file)).get_contents(),
+        modelId: opts.model || "scribe_v2", // Model to use
+        tagAudioEvents: true, // Tag audio events like laughter, applause, etc.
+        languageCode: opts.languageCode || "eng", // Language of the audio file. If set to null, the model will detect the language automatically.
+        numSpeakers: opts.numSpeakers || null, // Language of the audio file. If set to null, the model will detect the language automatically.
+        diarize: !!opts.diarize, // Whether to annotate who is speaking
+        diarizationThreshold: opts.diarizationThreshold || null
+      });
+      return transcription;
     case "OpenAI":
       const client = new OpenAI({
         apiKey: opts?.api_key || api_key || apiKey,
