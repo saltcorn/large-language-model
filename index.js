@@ -382,7 +382,7 @@ const functions = (config) => {
       isAsync: true,
       description: "Generate text with GPT",
       arguments: [
-        { name: "prompt", type: "String" },
+        { name: "prompt", type: "String", required: true },
         { name: "options", type: "JSON", tstype: "any" },
       ],
     },
@@ -394,7 +394,7 @@ const functions = (config) => {
       isAsync: true,
       description: "Generate image",
       arguments: [
-        { name: "prompt", type: "String" },
+        { name: "prompt", type: "String", required: true },
         { name: "options", type: "JSON", tstype: "any" },
       ],
     },
@@ -406,7 +406,7 @@ const functions = (config) => {
       isAsync: true,
       description: "Get vector embedding",
       arguments: [
-        { name: "prompt", type: "String" },
+        { name: "prompt", type: "String", required: true },
         { name: "options", type: "JSON", tstype: "any" },
       ],
     },
@@ -417,7 +417,9 @@ const functions = (config) => {
       },
       isAsync: true,
       description: "Get vector embedding",
-      arguments: [{ name: "options", type: "JSON", tstype: "any" }],
+      arguments: [
+        { name: "options", type: "JSON", tstype: "any", required: true },
+      ],
     },
   };
 };
@@ -441,7 +443,7 @@ const routes = (config) => {
         const oauth2Client = new google.auth.OAuth2(
           client_id,
           client_secret,
-          redirect_uri
+          redirect_uri,
         );
         const authUrl = oauth2Client.generateAuthUrl({
           access_type: "offline",
@@ -468,7 +470,7 @@ const routes = (config) => {
         const oauth2Client = new google.auth.OAuth2(
           client_id,
           client_secret,
-          redirect_uri
+          redirect_uri,
         );
         let plugin = await Plugin.findOne({ name: "large-language-model" });
         if (!plugin) {
@@ -484,8 +486,8 @@ const routes = (config) => {
             req.flash(
               "warning",
               req.__(
-                "No refresh token received. Please revoke the plugin's access and try again."
-              )
+                "No refresh token received. Please revoke the plugin's access and try again.",
+              ),
             );
           } else {
             const newConfig = { ...(plugin.configuration || {}), tokens };
@@ -497,7 +499,7 @@ const routes = (config) => {
             });
             req.flash(
               "success",
-              req.__("Authentication successful! You can now use Vertex AI.")
+              req.__("Authentication successful! You can now use Vertex AI."),
             );
           }
         } catch (error) {
@@ -624,13 +626,13 @@ module.exports = {
             prompt_formula,
             row,
             user,
-            "llm_generate prompt formula"
+            "llm_generate prompt formula",
           );
         else prompt = row[prompt_field];
         const opts = {};
         if (override_config) {
           const altcfg = config.altconfigs.find(
-            (c) => c.name === override_config
+            (c) => c.name === override_config,
           );
           opts.endpoint = altcfg.endpoint;
           opts.model = altcfg.model;
@@ -776,7 +778,7 @@ module.exports = {
         else
           await table.updateRow(
             { [answer_field]: ans.text },
-            row[table.pk_name]
+            row[table.pk_name],
           );
       },
     },
@@ -889,7 +891,7 @@ module.exports = {
             prompt_formula,
             row,
             user,
-            "llm_generate prompt formula"
+            "llm_generate prompt formula",
           );
         else prompt = row[prompt_field];
 
@@ -916,7 +918,7 @@ module.exports = {
             "image/png",
             imgContents,
             user?.id,
-            min_role || 1
+            min_role || 1,
           );
           upd[answer_field] = file.path_to_serve;
         }
@@ -1008,7 +1010,7 @@ module.exports = {
               sublabel:
                 "Use this context variable to store the chat history for subsequent prompts",
               type: "String",
-            }
+            },
           );
         } else if (table) {
           const jsonFields = table.fields
@@ -1032,7 +1034,7 @@ module.exports = {
               type: "String",
               required: true,
               attributes: { options: jsonFields },
-            }
+            },
           );
         }
 
@@ -1061,7 +1063,7 @@ module.exports = {
             input_type: "section_header",
             label: "JSON fields to generate",
           },
-          fieldsField
+          fieldsField,
         );
         return cfgFields;
       },
@@ -1087,7 +1089,7 @@ module.exports = {
         if (model) opts.model = model;
         if (override_config) {
           const altcfg = config.altconfigs.find(
-            (c) => c.name === override_config
+            (c) => c.name === override_config,
           );
           opts.endpoint = altcfg.endpoint;
           opts.model = altcfg.model;
