@@ -381,7 +381,10 @@ const functions = (config) => {
       },
       isAsync: true,
       description: "Generate text with GPT",
-      arguments: [{ name: "prompt", type: "String" }],
+      arguments: [
+        { name: "prompt", type: "String" },
+        { name: "options", type: "JSON", tstype: "any" },
+      ],
     },
     llm_image_generate: {
       run: async (prompt, opts) => {
@@ -390,7 +393,10 @@ const functions = (config) => {
       },
       isAsync: true,
       description: "Generate image",
-      arguments: [{ name: "prompt", type: "String" }],
+      arguments: [
+        { name: "prompt", type: "String" },
+        { name: "options", type: "JSON", tstype: "any" },
+      ],
     },
     llm_embedding: {
       run: async (prompt, opts) => {
@@ -399,7 +405,10 @@ const functions = (config) => {
       },
       isAsync: true,
       description: "Get vector embedding",
-      arguments: [{ name: "prompt", type: "String" }],
+      arguments: [
+        { name: "prompt", type: "String" },
+        { name: "options", type: "JSON", tstype: "any" },
+      ],
     },
     llm_transcribe: {
       run: async (opts) => {
@@ -408,7 +417,7 @@ const functions = (config) => {
       },
       isAsync: true,
       description: "Get vector embedding",
-      arguments: [{ name: "prompt", type: "String" }],
+      arguments: [{ name: "options", type: "JSON", tstype: "any" }],
     },
   };
 };
@@ -679,7 +688,8 @@ module.exports = {
             {
               name: "answer_field",
               label: "Response variable",
-              sublabel: "Set the generated response object to this context variable. The subfield <code>text</code> holds the string transcription",
+              sublabel:
+                "Set the generated response object to this context variable. The subfield <code>text</code> holds the string transcription",
               type: "String",
               required: true,
             },
