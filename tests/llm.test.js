@@ -14,6 +14,8 @@ beforeAll(async () => {
   getState().registerPlugin("base", require("@saltcorn/data/base-plugin"));
 });
 
+jest.setTimeout(30000);
+
 for (const nameconfig of require("./configs")) {
   const { name, ...config } = nameconfig;
   describe("llm_generate function with " + name, () => {
