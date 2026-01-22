@@ -38,7 +38,7 @@ const getEmbedding = async (config, opts) => {
           apiKey: config.api_key,
           embed_model: opts?.embed_model || config.embed_model || config.model,
         },
-        opts
+        opts,
       );
     case "OpenAI":
       return await getEmbeddingOpenAICompatible(
@@ -47,7 +47,7 @@ const getEmbedding = async (config, opts) => {
           bearer: opts?.api_key || config.api_key,
           embed_model: opts?.model || config.embed_model,
         },
-        opts
+        opts,
       );
     case "OpenAI-compatible API":
       return await getEmbeddingOpenAICompatible(
@@ -61,7 +61,7 @@ const getEmbedding = async (config, opts) => {
             config.embed_model ||
             config.model,
         },
-        opts
+        opts,
       );
     case "Local Ollama":
       if (config.embed_endpoint) {
@@ -74,14 +74,14 @@ const getEmbedding = async (config, opts) => {
               config.embed_model ||
               config.model,
           },
-          opts
+          opts,
         );
       } else {
         if (!ollamaMod) throw new Error("Not implemented for this backend");
 
         const { Ollama } = ollamaMod;
         const ollama = new Ollama(
-          config.ollama_host ? { host: config.ollama_host } : undefined
+          config.ollama_host ? { host: config.ollama_host } : undefined,
         );
         const olres = await ollama.embeddings({
           model: opts?.model || config.embed_model || config.model,
@@ -112,7 +112,7 @@ const getImageGeneration = async (config, opts) => {
           model: opts?.model || config.model,
           responses_api: config.responses_api,
         },
-        opts
+        opts,
       );
     default:
       throw new Error("Image generation not implemented for this backend");
@@ -121,7 +121,7 @@ const getImageGeneration = async (config, opts) => {
 
 const getAudioTranscription = async (
   { backend, apiKey, api_key, provider, ai_sdk_provider },
-  opts
+  opts,
 ) => {
   switch (opts.backend || backend) {
     case "ElevenLabs":
@@ -134,7 +134,7 @@ const getAudioTranscription = async (
         languageCode: opts.languageCode || "eng", // Language of the audio file. If set to null, the model will detect the language automatically.
         numSpeakers: opts.numSpeakers || null, // Language of the audio file. If set to null, the model will detect the language automatically.
         diarize: !!opts.diarize, // Whether to annotate who is speaking
-        diarizationThreshold: opts.diarizationThreshold || null
+        diarizationThreshold: opts.diarizationThreshold || null,
       });
       return transcription;
     case "OpenAI":
@@ -144,10 +144,10 @@ const getAudioTranscription = async (
       const fp = opts.file.location
         ? opts.file.location
         : typeof opts.file === "string"
-        ? await (
-            await File.findOne(opts.file)
-          ).location
-        : null;
+          ? await (
+              await File.findOne(opts.file)
+            ).location
+          : null;
       const model = opts?.model || "whisper-1";
       const diarize = model === "gpt-4o-transcribe-diarize";
       const transcript1 = await client.audio.transcriptions.create({
@@ -171,8 +171,8 @@ const getAudioTranscription = async (
         (Buffer.isBuffer(opts.file)
           ? opts.file
           : typeof opts.file === "string"
-          ? await (await File.findOne(opts.file)).get_contents()
-          : await opts.file.get_contents());
+            ? await (await File.findOne(opts.file)).get_contents()
+            : await opts.file.get_contents());
       const extra = {};
       if (opts.prompt)
         extra.providerOptions = {
@@ -202,7 +202,7 @@ const getCompletion = async (config, opts) => {
           apiKey: config.api_key,
           model: opts?.model || config.model,
         },
-        opts
+        opts,
       );
     case "OpenAI":
       return await getCompletionOpenAICompatible(
@@ -214,7 +214,7 @@ const getCompletion = async (config, opts) => {
           model: opts?.model || config.model,
           responses_api: config.responses_api,
         },
-        opts
+        opts,
       );
     case "OpenAI-compatible API":
       return await getCompletionOpenAICompatible(
@@ -228,7 +228,7 @@ const getCompletion = async (config, opts) => {
           apiKey: opts?.api_key || config.api_key,
           model: opts?.model || config.model,
         },
-        opts
+        opts,
       );
     case "Local Ollama":
       return await getCompletionOpenAICompatible(
@@ -238,14 +238,14 @@ const getCompletion = async (config, opts) => {
             : "http://localhost:11434/v1/chat/completions",
           model: opts?.model || config.model,
         },
-        opts
+        opts,
       );
     case "Local llama.cpp":
       //TODO only check if unsafe plugins not allowed
       const isRoot = db.getTenantSchema() === db.connectObj.default_schema;
       if (!isRoot)
         throw new Error(
-          "llama.cpp inference is not permitted on subdomain tenants"
+          "llama.cpp inference is not permitted on subdomain tenants",
         );
       let hyperStr = "";
       if (opts.temperature) hyperStr += ` --temp ${opts.temperature}`;
@@ -255,7 +255,7 @@ const getCompletion = async (config, opts) => {
 
       const { stdout, stderr } = await exec(
         `./main -m ${config.model_path} -p "${opts.prompt}" ${nstr}${hyperStr}`,
-        { cwd: config.llama_dir }
+        { cwd: config.llama_dir },
       );
       return stdout;
     case "Google Vertex AI":
@@ -291,7 +291,7 @@ const getCompletionAISDK = async (
     api_key,
     endpoint,
     ...rest
-  }
+  },
 ) => {
   const use_model_name = rest.model || model;
   let model_obj = getAiSdkModel({
@@ -402,7 +402,7 @@ const getCompletionOpenAICompatible = async (
     api_key,
     endpoint,
     ...rest
-  }
+  },
 ) => {
   const headers = {
     "Content-Type": "application/json",
@@ -440,6 +440,7 @@ const getCompletionOpenAICompatible = async (
     delete body.streamCallback;
   }
   if (responses_api) {
+    delete body.tool_choice;
     for (const tool of body.tools || []) {
       if (tool.type !== "function") continue;
       tool.name = tool.function.name;
@@ -524,14 +525,14 @@ const getCompletionOpenAICompatible = async (
       "to",
       chatCompleteEndpoint,
       "headers",
-      JSON.stringify(headers)
+      JSON.stringify(headers),
     );
   else
     getState().log(
       6,
       `OpenAI request ${JSON.stringify(
-        body
-      )} to ${chatCompleteEndpoint} headers ${JSON.stringify(headers)}`
+        body,
+      )} to ${chatCompleteEndpoint} headers ${JSON.stringify(headers)}`,
     );
   if (debugCollector) debugCollector.request = body;
   const reqTimeStart = Date.now();
@@ -643,7 +644,7 @@ const getCompletionOpenAICompatible = async (
         o.type === "function_call" ||
         o.type === "image_generation_call" ||
         o.type === "mcp_list_tools" ||
-        o.type === "mcp_call"
+        o.type === "mcp_call",
     )
       ? {
           tool_calls: emptyToUndefined(
@@ -652,15 +653,15 @@ const getCompletionOpenAICompatible = async (
               .map((o) => ({
                 function: { name: o.name, arguments: o.arguments },
                 ...o,
-              }))
+              })),
           ),
           image_calls: emptyToUndefined(
-            results.output.filter((o) => o.type === "image_generation_call")
+            results.output.filter((o) => o.type === "image_generation_call"),
           ),
           mcp_calls: emptyToUndefined(
             results.output.filter(
-              (o) => o.type === "mcp_call" || o.type === "mcp_list_tools"
-            )
+              (o) => o.type === "mcp_call" || o.type === "mcp_list_tools",
+            ),
           ),
           content: textOutput || null,
         }
@@ -688,7 +689,7 @@ const getImageGenOpenAICompatible = async (
     n,
     output_format,
     response_format,
-  }
+  },
 ) => {
   const { imageEndpoint, bearer, apiKey, image_model } = config;
   const headers = {
@@ -725,7 +726,7 @@ const getImageGenOpenAICompatible = async (
 
 const getEmbeddingOpenAICompatible = async (
   config,
-  { prompt, model, debugResult }
+  { prompt, model, debugResult },
 ) => {
   const { embeddingsEndpoint, bearer, apiKey, embed_model } = config;
   const headers = {
@@ -762,7 +763,7 @@ const getEmbeddingAISDK = async (config, { prompt, model, debugResult }) => {
     case "OpenAI":
       const openai = createOpenAI({ apiKey: apiKey });
       model_obj = openai.textEmbeddingModel(
-        model_name || "text-embedding-3-small"
+        model_name || "text-embedding-3-small",
       );
       //providerOptions.openai = {};
       break;
@@ -815,7 +816,7 @@ const initOAuth2Client = async (config) => {
   const oauth2Client = new google.auth.OAuth2(
     client_id,
     client_secret,
-    redirect_uri
+    redirect_uri,
   );
   oauth2Client.setCredentials(pluginCfg.tokens);
   return oauth2Client;
@@ -883,7 +884,7 @@ const getCompletionGoogleVertex = async (config, opts, oauth2Client) => {
     chatParams.tools = [
       {
         functionDeclarations: opts.tools.map((t) =>
-          prepFuncArgsForChat(t.function)
+          prepFuncArgsForChat(t.function),
         ),
       },
     ];
@@ -925,7 +926,7 @@ const getEmbeddingGoogleVertex = async (config, opts, oauth2Client) => {
       helpers.toValue({
         content: p,
         task_type: config.task_type || "RETRIEVAL_QUERY",
-      })
+      }),
     );
   } else {
     instances = [

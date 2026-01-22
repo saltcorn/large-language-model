@@ -48,25 +48,99 @@ for (const nameconfig of require("./configs")) {
       expect(answer).toContain("Freitag");
     });
     it("generates text with chat history", async () => {
+      const chat = [
+        {
+          role: "user",
+          content: "What is the capital of France?",
+        },
+        {
+          role: "assistant",
+          content: "Paris.",
+        },
+      ];
       const answer = await getState().functions.llm_generate.run(
         "What is the name of the river running through this city?",
         {
-          chat: [
-            {
-              role: "user",
-              content: "What is the capital of France?",
-            },
-            {
-              role: "assistant",
-              content: "Paris.",
-            },
-          ],
+          chat,
         },
       );
       //console.log({ answer });
 
       expect(typeof answer).toBe("string");
       expect(answer).toContain("Seine");
+      expect(chat.length).toBe(2);
+    });
+    it("generates text with chat history and no prompt", async () => {
+      const answer = await getState().functions.llm_generate.run("", {
+        chat: [
+          {
+            role: "user",
+            content: "What is the capital of France?",
+          },
+          {
+            role: "assistant",
+            content: "Paris.",
+          },
+          {
+            role: "user",
+            content: "What is the name of the river running through this city?",
+          },
+        ],
+      });
+      //console.log({ answer });
+
+      expect(typeof answer).toBe("string");
+      expect(answer).toContain("Seine");
+    });
+    it("uses tools", async () => {
+      const answer = await getState().functions.llm_generate.run(
+        "Generate a list of EU capitals in a structured format using the provided tool",
+        {
+          tools: [
+            {
+              type: "function",
+              function: {
+                name: "cities",
+                description:
+                  "Provide a list of cities by country and city name",
+                parameters: {
+                  type: "object",
+                  properties: {
+                    cities: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        properties: {
+                          country_name: {
+                            type: "string",
+                            description: "Country name",
+                          },
+                          city_name: {
+                            type: "string",
+                            description: "City name",
+                          },
+                        },
+                        required: ["country_name", "city_name"],
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          ],
+          tool_choice: {
+            type: "function",
+            function: {
+              name: "cities",
+            },
+          },
+        },
+      );
+      expect(typeof answer).toBe("object");
+      const cities = answer.ai_sdk
+        ? answer.tool_calls[0].input?.cities
+        : JSON.parse(answer.tool_calls[0].function.arguments).cities;
+      expect(cities.length).toBe(27);
     });
   });
 }
