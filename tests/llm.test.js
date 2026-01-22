@@ -45,5 +45,26 @@ for (const nameconfig of require("./configs")) {
       expect(typeof answer).toBe("string");
       expect(answer).toContain("Freitag");
     });
+    it("generates text with chat history", async () => {
+      const answer = await getState().functions.llm_generate.run(
+        "What is the name of the river running through this city?",
+        {
+          chat: [
+            {
+              role: "user",
+              content: "What is the capital of France?",
+            },
+            {
+              role: "assistant",
+              content: "Paris.",
+            },
+          ],
+        },
+      );
+      //console.log({ answer });
+
+      expect(typeof answer).toBe("string");
+      expect(answer).toContain("Seine");
+    });
   });
 }
