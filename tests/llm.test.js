@@ -35,7 +35,7 @@ for (const nameconfig of require("./configs")) {
     });
     it("generates text with system prompt", async () => {
       const answer = await getState().functions.llm_generate.run(
-        "What is the name of the last week day in a work week?",
+        "What is the name of the last week day in a normal work week?",
         {
           systemPrompt: "Answer in German, even when questions are in English",
         },
