@@ -12,16 +12,13 @@ beforeAll(async () => {
   await require("@saltcorn/data/db/fixtures")();
 
   getState().registerPlugin("base", require("@saltcorn/data/base-plugin"));
-  //getState().registerPlugin("@saltcorn/large-language-model", require(".."));
 });
 
 const activate_config = async (cfgname) => {
-  const { name, ...config } = require("./configs").find((cn) => cn.name === cfgname);
-  /*const plugin = await Plugin.findOne({
-    name: "@saltcorn/large-language-model",
-  });
-  plugin.configuration = config;
-  await plugin.upsert();*/
+  const { name, ...config } = require("./configs").find(
+    (cn) => cn.name === cfgname,
+  );
+
   getState().registerPlugin(
     "@saltcorn/large-language-model",
     require(".."),
@@ -30,7 +27,7 @@ const activate_config = async (cfgname) => {
 };
 
 describe("llm_generate function with OpenAI completions", () => {
-  it("run count_books", async () => {
+  it("generates text", async () => {
     await activate_config("OpenAI completions");
 
     const answer = await getState().functions.llm_generate.run(
