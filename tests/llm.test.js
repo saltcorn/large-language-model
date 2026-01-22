@@ -14,28 +14,24 @@ beforeAll(async () => {
   getState().registerPlugin("base", require("@saltcorn/data/base-plugin"));
 });
 
-const activate_config = async (cfgname) => {
-  const { name, ...config } = require("./configs").find(
-    (cn) => cn.name === cfgname,
-  );
+for (const nameconfig of require("./configs")) {
+  const { name, ...config } = nameconfig;
+  describe("llm_generate function with " + name, () => {
+    beforeAll(async () => {
+      getState().registerPlugin(
+        "@saltcorn/large-language-model",
+        require(".."),
+        config,
+      );
+    });
+    it("generates text", async () => {
+      const answer = await getState().functions.llm_generate.run(
+        "What is the Capital of France?",
+      );
+      //console.log({ answer });
 
-  getState().registerPlugin(
-    "@saltcorn/large-language-model",
-    require(".."),
-    config,
-  );
-};
-
-describe("llm_generate function with OpenAI completions", () => {
-  it("generates text", async () => {
-    await activate_config("OpenAI completions");
-
-    const answer = await getState().functions.llm_generate.run(
-      "What is the Capital of France?",
-    );
-    console.log({ answer });
-
-    expect(typeof answer).toBe("string");
-    expect(answer).toContain("Paris");
+      expect(typeof answer).toBe("string");
+      expect(answer).toContain("Paris");
+    });
   });
-});
+}
