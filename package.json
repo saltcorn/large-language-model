@@ -16,13 +16,19 @@
     "openai": "6.16.0",
     "@elevenlabs/elevenlabs-js": "2.31.0"
   },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
+  "scripts": {
+    "test": "jest tests --runInBand"
+  },
   "author": "Tom Nielsen",
   "license": "MIT",
   "repository": "github:saltcorn/large-language-model",
   "eslintConfig": {
     "extends": "eslint:recommended",
     "parserOptions": {
-      "ecmaVersion": 2020
+      "ecmaVersion": 2024
     },
     "env": {
       "node": true,
