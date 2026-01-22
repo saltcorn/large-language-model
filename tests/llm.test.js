@@ -33,5 +33,17 @@ for (const nameconfig of require("./configs")) {
       expect(typeof answer).toBe("string");
       expect(answer).toContain("Paris");
     });
+    it("generates text with system prompt", async () => {
+      const answer = await getState().functions.llm_generate.run(
+        "What is the name of the last week day in a work week?",
+        {
+          systemPrompt: "Answer in German, even when questions are in English",
+        },
+      );
+      //console.log({ answer });
+
+      expect(typeof answer).toBe("string");
+      expect(answer).toContain("Freitag");
+    });
   });
 }
