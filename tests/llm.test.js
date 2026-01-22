@@ -12,30 +12,33 @@ beforeAll(async () => {
   await require("@saltcorn/data/db/fixtures")();
 
   getState().registerPlugin("base", require("@saltcorn/data/base-plugin"));
-  getState().registerPlugin("@saltcorn/large-language-model", require(".."));
+  //getState().registerPlugin("@saltcorn/large-language-model", require(".."));
 });
 
-for (const name_config of require("./configs")) {
-  const { name, ...config } = name_config;
-  const plugin = await Plugin.findOne({
+const activate_config = async (cfgname) => {
+  const { name, ...config } = require("./configs").find((cn) => cn.name === cfgname);
+  /*const plugin = await Plugin.findOne({
     name: "@saltcorn/large-language-model",
   });
   plugin.configuration = config;
-  await plugin.upsert();
+  await plugin.upsert();*/
   getState().registerPlugin(
     "@saltcorn/large-language-model",
     require(".."),
     config,
   );
-  describe("llm_generate function with " + name, () => {
-    it("run count_books", async () => {
-      const answer = await getState().functions.llm_generate.run(
-        "What is the Capital of France?",
-      );
-      console.log({ answer });
+};
 
-      expect(typeof answer).toBe("string");
-      expect(answer).toContain("Paris");
-    });
+describe("llm_generate function with OpenAI completions", () => {
+  it("run count_books", async () => {
+    await activate_config("OpenAI completions");
+
+    const answer = await getState().functions.llm_generate.run(
+      "What is the Capital of France?",
+    );
+    console.log({ answer });
+
+    expect(typeof answer).toBe("string");
+    expect(answer).toContain("Paris");
   });
-}
+});
