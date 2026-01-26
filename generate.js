@@ -350,9 +350,9 @@ const getCompletionAISDK = async (
     const prevTools = [...body.tools];
     body.tools = {};
     prevTools.forEach((t) => {
-      body.tools[t.function.name] = tool({
-        description: t.function.description,
-        inputSchema: jsonSchema(t.function.parameters),
+      body.tools[t.name || t.function.name] = tool({
+        description: t.description || t.function.description,
+        inputSchema: jsonSchema(t.parameters || t.function.parameters),
       });
     });
   }

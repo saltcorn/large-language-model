@@ -26,6 +26,7 @@ for (const nameconfig of require("./configs")) {
         config,
       );
     });
+
     it("generates text", async () => {
       const answer = await getState().functions.llm_generate.run(
         "What is the Capital of France?",
@@ -95,46 +96,7 @@ for (const nameconfig of require("./configs")) {
     it("uses tools", async () => {
       const answer = await getState().functions.llm_generate.run(
         "Generate a list of EU capitals in a structured format using the provided tool",
-        {
-          tools: [
-            {
-              type: "function",
-              function: {
-                name: "cities",
-                description:
-                  "Provide a list of cities by country and city name",
-                parameters: {
-                  type: "object",
-                  properties: {
-                    cities: {
-                      type: "array",
-                      items: {
-                        type: "object",
-                        properties: {
-                          country_name: {
-                            type: "string",
-                            description: "Country name",
-                          },
-                          city_name: {
-                            type: "string",
-                            description: "City name",
-                          },
-                        },
-                        required: ["country_name", "city_name"],
-                      },
-                    },
-                  },
-                },
-              },
-            },
-          ],
-          tool_choice: {
-            type: "function",
-            function: {
-              name: "cities",
-            },
-          },
-        },
+        cities_tool,
       );
       expect(typeof answer).toBe("object");
       const cities = answer.ai_sdk
@@ -144,3 +106,43 @@ for (const nameconfig of require("./configs")) {
     });
   });
 }
+
+const cities_tool = {
+  tools: [
+    {
+      type: "function",
+      function: {
+        name: "cities",
+        description: "Provide a list of cities by country and city name",
+        parameters: {
+          type: "object",
+          properties: {
+            cities: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  country_name: {
+                    type: "string",
+                    description: "Country name",
+                  },
+                  city_name: {
+                    type: "string",
+                    description: "City name",
+                  },
+                },
+                required: ["country_name", "city_name"],
+              },
+            },
+          },
+        },
+      },
+    },
+  ],
+  tool_choice: {
+    type: "function",
+    function: {
+      name: "cities",
+    },
+  },
+};
