@@ -286,6 +286,7 @@ const getCompletionAISDK = async (
     systemPrompt,
     prompt,
     debugResult,
+    appendToChat,
     debugCollector,
     chat = [],
     api_key,
@@ -313,7 +314,7 @@ const getCompletionAISDK = async (
       ...(Array.isArray(chat.content) ? { content: chat.content.map(f) } : {}),
     };
   };
-  const newChat = chat.map(modifyChat);
+  const newChat = appendToChat ? chat : chat.map(modifyChat);
 
   const body = {
     ...rest,
@@ -327,6 +328,9 @@ const getCompletionAISDK = async (
       ...(prompt ? [{ role: "user", content: prompt }] : []),
     ],
   };
+  if (appendToChat && chat && prompt) {
+    chat.push({ role: "user", content: prompt });
+  }
   if (rest.temperature || temperature) {
     const str_or_num = rest.temperature || temperature;
     body.temperature = +str_or_num;
@@ -372,6 +376,11 @@ const getCompletionAISDK = async (
       rest.streamCallback(textPart);
     }
   } else results = await generateText(body);
+
+  if (appendToChat && chat) {
+    chat.push(...results.response.messages);
+  }
+
   if (debugResult)
     console.log("AI SDK response", JSON.stringify(results, null, 2));
   else getState().log(6, `AI SDK response ${JSON.stringify(results)}`);
@@ -450,7 +459,7 @@ const getCompletionOpenAICompatible = async (
       if (tool.function.required) tool.required = tool.function.required;
       delete tool.function;
     }
-    let newChat
+    let newChat;
     if (!appendToChat) {
       newChat = [];
       (chat || []).forEach((c) => {
@@ -501,7 +510,7 @@ const getCompletionOpenAICompatible = async (
           });
         }
       });
-    } else newChat = chat
+    } else newChat = chat;
     body.input = [
       {
         role: "system",

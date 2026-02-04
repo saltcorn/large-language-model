@@ -103,28 +103,27 @@ for (const nameconfig of require("./configs")) {
         ? answer.tool_calls[0].input?.cities
         : JSON.parse(answer.tool_calls[0].function.arguments).cities;
       expect(cities.length).toBe(27);
+    });
     it("generates text with chat history", async () => {
-      const chat = [
+      const chat = [];
+      const answer1 = await getState().functions.llm_generate.run(
+        "What is the Capital of France?",
         {
-          role: "user",
-          content: "What is the capital of France?",
+          chat,
+          appendToChat: true,
         },
-        {
-          role: "assistant",
-          content: "Paris.",
-        },
-      ];
-      const answer = await getState().functions.llm_generate.run(
+      );
+      const answer2 = await getState().functions.llm_generate.run(
         "What is the name of the river running through this city?",
         {
           chat,
-          appendToChat: true
+          appendToChat: true,
         },
       );
       //console.log({ answer });
 
-      expect(typeof answer).toBe("string");
-      expect(answer).toContain("Seine");
+      expect(typeof answer2).toBe("string");
+      expect(answer2).toContain("Seine");
       expect(chat.length).toBe(4);
     });
   });
