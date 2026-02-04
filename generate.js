@@ -628,9 +628,10 @@ const getCompletionOpenAICompatible = async (
       : streamParts.join("");
   }
   const results = await rawResponse.json();
-  //console.log("results", results);
   if (appendToChat && chat) {
-    chat.push(results.choices[0].message);
+    if (responses_api) {
+      chat.push(results.output);
+    } else chat.push(results.choices[0].message);
   }
   if (debugResult)
     console.log("OpenAI response", JSON.stringify(results, null, 2));
