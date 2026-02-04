@@ -104,7 +104,7 @@ for (const nameconfig of require("./configs")) {
         : JSON.parse(answer.tool_calls[0].function.arguments).cities;
       expect(cities.length).toBe(27);
     });
-    it("generates text with chat history", async () => {
+    it("appends to chat history", async () => {
       const chat = [];
       const answer1 = await getState().functions.llm_generate.run(
         "What is the Capital of France?",
@@ -125,6 +125,31 @@ for (const nameconfig of require("./configs")) {
       expect(typeof answer2).toBe("string");
       expect(answer2).toContain("Seine");
       expect(chat.length).toBe(4);
+    });
+    it("tool use sequence", async () => {
+      const chat = [];
+      const answer = await getState().functions.llm_generate.run(
+        "Generate a list of EU capitals in a structured format using the provided tool",
+        { chat, appendToChat: true, ...cities_tool },
+      );
+      expect(typeof answer).toBe("object");
+      const cities = answer.ai_sdk
+        ? answer.tool_calls[0].input?.cities
+        : JSON.parse(answer.tool_calls[0].function.arguments).cities;
+      expect(cities.length).toBe(27);
+
+      await getState().functions.llm_tool_response.run("List received", {
+        chat,
+      });
+
+      const answer1 = await getState().functions.llm_generate.run(
+        "Make the same list but for the original 12 member countries of the EU",
+        { chat, appendToChat: true, ...cities_tool },
+      );
+      const cities1 = answer1.ai_sdk
+        ? answer1.tool_calls[0].input?.cities
+        : JSON.parse(answer1.tool_calls[0].function.arguments).cities;
+      expect(cities1.length).toBe(12);
     });
   });
 }

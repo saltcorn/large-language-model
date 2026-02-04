@@ -196,27 +196,44 @@ const getAudioTranscription = async (
 const last = (xs) => xs[xs.length - 1];
 
 const toolResponse = async (
-  { backend, apiKey, api_key, provider, ai_sdk_provider },
+  { backend, apiKey, api_key, provider, ai_sdk_provider, responses_api },
   opts,
 ) => {
   let chat = opts.chat;
   let result = opts.prompt;
-
+  //console.log("chat", JSON.stringify(chat, null, 2));
   switch (opts.backend || backend) {
     case "OpenAI":
-      let tool_call =
-        opts.tool_call || last(chat.filter((c) => c.tool_calls)).tool_calls[0];
+      let tool_call_chat;
+      if (opts.tool_call) tool_call_chat = opts.tool_call;
+      else
+        tool_call_chat = last(
+          chat.filter((c) => c.tool_calls || c.type === "function_call"),
+        );
 
-      chat.push({
-        role: "tool",
-        tool_call_id: tool_call.toolCallId || tool_call.id,
-        call_id: tool_call.call_id,
-        name: tool_call.toolName || tool_call.function.name,
-        content:
-          result && typeof result !== "string"
-            ? JSON.stringify(result)
-            : result || "Action run",
-      });
+      let tool_call = tool_call_chat.tool_calls
+        ? tool_call_chat.tool_calls[0] //original api
+        : tool_call_chat; //responses api
+      const content =
+        result && typeof result !== "string"
+          ? JSON.stringify(result)
+          : result || "Action run";
+
+      chat.push(
+        responses_api
+          ? {
+              type: "function_call_output",
+              call_id: tool_call.call_id,
+              output: content,
+            }
+          : {
+              role: "tool",
+              tool_call_id: tool_call.toolCallId || tool_call.id,
+              call_id: tool_call.call_id,
+              name: tool_call.name || tool_call.function.name,
+              content,
+            },
+      );
 
     case "AI SDK":
 
@@ -483,7 +500,7 @@ const getCompletionOpenAICompatible = async (
   if (responses_api) {
     delete body.tool_choice;
     for (const tool of body.tools || []) {
-      if (tool.type !== "function") continue;
+      if (tool.type !== "function" || !tool.function) continue;
       tool.name = tool.function.name;
       tool.description = tool.function.description;
       tool.parameters = tool.function.parameters;
@@ -671,11 +688,7 @@ const getCompletionOpenAICompatible = async (
       : streamParts.join("");
   }
   const results = await rawResponse.json();
-  if (appendToChat && chat) {
-    if (responses_api) {
-      chat.push(...results.output);
-    } else chat.push(results.choices[0].message);
-  }
+
   if (debugResult)
     console.log("OpenAI response", JSON.stringify(results, null, 2));
   else getState().log(6, `OpenAI response ${JSON.stringify(results)}`);
@@ -685,6 +698,10 @@ const getCompletionOpenAICompatible = async (
   }
 
   if (results.error) throw new Error(`OpenAI error: ${results.error.message}`);
+  if (appendToChat && chat) {
+    if (responses_api) chat.push(...results.output);
+    else chat.push(results.choices[0].message);
+  }
   if (responses_api) {
     const textOutput = results.output
       .filter((o) => o.type === "message")
