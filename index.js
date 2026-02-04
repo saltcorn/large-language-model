@@ -11,6 +11,7 @@ const {
   getEmbedding,
   getImageGeneration,
   getAudioTranscription,
+  toolResponse
 } = require("./generate");
 const { OPENAI_MODELS } = require("./constants.js");
 const { eval_expression } = require("@saltcorn/data/models/expression");
@@ -419,6 +420,18 @@ const functions = (config) => {
       description: "Get vector embedding",
       arguments: [
         { name: "options", type: "JSON", tstype: "any", required: true },
+      ],
+    },
+    llm_tool_response: {
+      run: async (prompt, opts) => {
+        const result = await toolResponse(config, { prompt, ...opts });
+        return result;
+      },
+      isAsync: true,
+      description: "Insert the response to a tool call into a chat",
+      arguments: [
+        { name: "prompt", type: "String", required: true },
+        { name: "options", type: "JSON", tstype: "any" },
       ],
     },
   };

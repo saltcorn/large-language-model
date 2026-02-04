@@ -193,6 +193,37 @@ const getAudioTranscription = async (
   }
 };
 
+const last = (xs) => xs[xs.length - 1];
+
+const toolResponse = async (
+  { backend, apiKey, api_key, provider, ai_sdk_provider },
+  opts,
+) => {
+  let chat = opts.chat;
+  let result = opts.prompt;
+
+  switch (opts.backend || backend) {
+    case "OpenAI":
+      let tool_call =
+        opts.tool_call || last(chat.filter((c) => c.tool_calls)).tool_calls[0];
+
+      chat.push({
+        role: "tool",
+        tool_call_id: tool_call.toolCallId || tool_call.id,
+        call_id: tool_call.call_id,
+        name: tool_call.toolName || tool_call.function.name,
+        content:
+          result && typeof result !== "string"
+            ? JSON.stringify(result)
+            : result || "Action run",
+      });
+
+    case "AI SDK":
+
+    default:
+  }
+};
+
 const getCompletion = async (config, opts) => {
   switch (config.backend) {
     case "AI SDK":
@@ -978,4 +1009,5 @@ module.exports = {
   getEmbedding,
   getImageGeneration,
   getAudioTranscription,
+  toolResponse,
 };
