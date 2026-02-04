@@ -204,39 +204,77 @@ const toolResponse = async (
   //console.log("chat", JSON.stringify(chat, null, 2));
   switch (opts.backend || backend) {
     case "OpenAI":
-      let tool_call_chat;
-      if (opts.tool_call) tool_call_chat = opts.tool_call;
-      else
-        tool_call_chat = last(
-          chat.filter((c) => c.tool_calls || c.type === "function_call"),
+      {
+        let tool_call_chat;
+        if (opts.tool_call) tool_call_chat = opts.tool_call;
+        else
+          tool_call_chat = last(
+            chat.filter((c) => c.tool_calls || c.type === "function_call"),
+          );
+
+        let tool_call = tool_call_chat.tool_calls
+          ? tool_call_chat.tool_calls[0] //original api
+          : tool_call_chat; //responses api
+        const content =
+          result && typeof result !== "string"
+            ? JSON.stringify(result)
+            : result || "Action run";
+
+        chat.push(
+          responses_api
+            ? {
+                type: "function_call_output",
+                call_id: tool_call.call_id,
+                output: content,
+              }
+            : {
+                role: "tool",
+                tool_call_id: tool_call.toolCallId || tool_call.id,
+                call_id: tool_call.call_id,
+                name: tool_call.name || tool_call.function.name,
+                content,
+              },
         );
-
-      let tool_call = tool_call_chat.tool_calls
-        ? tool_call_chat.tool_calls[0] //original api
-        : tool_call_chat; //responses api
-      const content =
-        result && typeof result !== "string"
-          ? JSON.stringify(result)
-          : result || "Action run";
-
-      chat.push(
-        responses_api
-          ? {
-              type: "function_call_output",
-              call_id: tool_call.call_id,
-              output: content,
-            }
-          : {
-              role: "tool",
-              tool_call_id: tool_call.toolCallId || tool_call.id,
-              call_id: tool_call.call_id,
-              name: tool_call.name || tool_call.function.name,
-              content,
-            },
-      );
-
+      }
+      break;
     case "AI SDK":
+      {
+        let tool_call;
+        if (opts.tool_call) tool_call = opts.tool_call;
+        else
+          tool_call = last(
+            chat.filter(
+              (c) =>
+                c.role === "assistant" &&
+                Array.isArray(c.content) &&
+                c.content.some((cc) => cc.type === "tool-call"),
+            ),
+          );
 
+        const tc = tool_call.content[0];
+
+        chat.push({
+          role: "tool",
+          content: [
+            {
+              type: "tool-result",
+              toolCallId: tc.toolCallId,
+              toolName: tc.toolName,
+              output:
+                !result || typeof result === "string"
+                  ? {
+                      type: "text",
+                      value: result || "Action run",
+                    }
+                  : {
+                      type: "json",
+                      value: JSON.parse(JSON.stringify(result)),
+                    },
+            },
+          ],
+        });
+      }
+      break;
     default:
   }
 };

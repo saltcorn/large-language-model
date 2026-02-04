@@ -143,7 +143,7 @@ for (const nameconfig of require("./configs")) {
       });
 
       const answer1 = await getState().functions.llm_generate.run(
-        "Make the same list but for the original 12 member countries of the EU",
+        "Make the same list in a structured format using the provided tool but for the original 12 member countries of the EU",
         { chat, appendToChat: true, ...cities_tool },
       );
       const cities1 = answer1.ai_sdk
