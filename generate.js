@@ -450,55 +450,58 @@ const getCompletionOpenAICompatible = async (
       if (tool.function.required) tool.required = tool.function.required;
       delete tool.function;
     }
-    const newChat = [];
-    (chat || []).forEach((c) => {
-      if (c.tool_calls) {
-        c.tool_calls.forEach((tc) => {
-          newChat.push({
-            id: tc.id,
-            type: "function_call",
-            call_id: tc.call_id,
-            name: tc.name,
-            arguments: tc.arguments,
+    let newChat
+    if (!appendToChat) {
+      newChat = [];
+      (chat || []).forEach((c) => {
+        if (c.tool_calls) {
+          c.tool_calls.forEach((tc) => {
+            newChat.push({
+              id: tc.id,
+              type: "function_call",
+              call_id: tc.call_id,
+              name: tc.name,
+              arguments: tc.arguments,
+            });
           });
-        });
-      } else if (c.content?.image_calls) {
-        c.content.image_calls.forEach((ic) => {
-          newChat.push({
-            ...ic,
-            result: undefined,
-            filename: undefined,
+        } else if (c.content?.image_calls) {
+          c.content.image_calls.forEach((ic) => {
+            newChat.push({
+              ...ic,
+              result: undefined,
+              filename: undefined,
+            });
           });
-        });
-      } else if (c.content?.mcp_calls) {
-        c.content.mcp_calls.forEach((ic) => {
-          newChat.push({
-            ...ic,
+        } else if (c.content?.mcp_calls) {
+          c.content.mcp_calls.forEach((ic) => {
+            newChat.push({
+              ...ic,
+            });
           });
-        });
-      } else if (c.role === "tool") {
-        newChat.push({
-          type: "function_call_output",
-          call_id: c.call_id,
-          output: c.content,
-        });
-      } else {
-        const fcontent = (c) => {
-          if (c.type === "image_url")
-            return {
-              type: "input_image",
-              image_url: c.image_url.url,
-            };
-          else return c;
-        };
-        newChat.push({
-          ...c,
-          content: Array.isArray(c.content)
-            ? c.content.map(fcontent)
-            : c.content,
-        });
-      }
-    });
+        } else if (c.role === "tool") {
+          newChat.push({
+            type: "function_call_output",
+            call_id: c.call_id,
+            output: c.content,
+          });
+        } else {
+          const fcontent = (c) => {
+            if (c.type === "image_url")
+              return {
+                type: "input_image",
+                image_url: c.image_url.url,
+              };
+            else return c;
+          };
+          newChat.push({
+            ...c,
+            content: Array.isArray(c.content)
+              ? c.content.map(fcontent)
+              : c.content,
+          });
+        }
+      });
+    } else newChat = chat
     body.input = [
       {
         role: "system",
@@ -630,7 +633,7 @@ const getCompletionOpenAICompatible = async (
   const results = await rawResponse.json();
   if (appendToChat && chat) {
     if (responses_api) {
-      chat.push(results.output);
+      chat.push(...results.output);
     } else chat.push(results.choices[0].message);
   }
   if (debugResult)
