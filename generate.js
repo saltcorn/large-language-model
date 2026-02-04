@@ -399,6 +399,7 @@ const getCompletionOpenAICompatible = async (
     debugResult,
     debugCollector,
     chat = [],
+    appendToChat,
     api_key,
     endpoint,
     ...rest
@@ -518,6 +519,9 @@ const getCompletionOpenAICompatible = async (
       ...(prompt ? [{ role: "user", content: prompt }] : []),
     ];
   }
+  if (appendToChat && chat && prompt) {
+    chat.push({ role: "user", content: prompt });
+  }
   if (debugResult)
     console.log(
       "OpenAI request",
@@ -625,6 +629,9 @@ const getCompletionOpenAICompatible = async (
   }
   const results = await rawResponse.json();
   //console.log("results", results);
+  if (appendToChat && chat) {
+    chat.push(results.choices[0].message);
+  }
   if (debugResult)
     console.log("OpenAI response", JSON.stringify(results, null, 2));
   else getState().log(6, `OpenAI response ${JSON.stringify(results)}`);
