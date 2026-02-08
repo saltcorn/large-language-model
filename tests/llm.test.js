@@ -136,22 +136,24 @@ for (const nameconfig of require("./configs")) {
         { chat, appendToChat: true, ...cities_tool },
       );
       expect(typeof answer).toBe("object");
-      const cities = answer.ai_sdk
-        ? answer.tool_calls[0].input?.cities
-        : JSON.parse(answer.tool_calls[0].function.arguments).cities;
+
+      const tc = answer.getToolCalls()[0];
+
+      const cities = tc.input.cities;
       expect(cities.length).toBe(27);
 
       await getState().functions.llm_tool_response.run("List received", {
         chat,
+        tool_call: tc,
       });
 
       const answer1 = await getState().functions.llm_generate.run(
         "Make the same list in a structured format using the provided tool but for the original 12 member countries of the EU",
         { chat, appendToChat: true, ...cities_tool },
       );
-      const cities1 = answer1.ai_sdk
-        ? answer1.tool_calls[0].input?.cities
-        : JSON.parse(answer1.tool_calls[0].function.arguments).cities;
+
+      const cities1 = answer1.getToolCalls()[0].input?.cities;
+
       expect(cities1.length).toBe(12);
     });
   });
