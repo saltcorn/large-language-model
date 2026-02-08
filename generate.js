@@ -205,16 +205,18 @@ const toolResponse = async (
   switch (opts.backend || backend) {
     case "OpenAI":
       {
-        let tool_call_chat;
-        if (opts.tool_call) tool_call_chat = opts.tool_call;
-        else
-          tool_call_chat = last(
-            chat.filter((c) => c.tool_calls || c.type === "function_call"),
-          );
+        let tool_call_chat, tool_call;
+        if (!(opts.tool_call_id && opts.tool_name)) {
+          if (opts.tool_call) tool_call_chat = opts.tool_call;
+          else
+            tool_call_chat = last(
+              chat.filter((c) => c.tool_calls || c.type === "function_call"),
+            );
 
-        let tool_call = tool_call_chat.tool_calls
-          ? tool_call_chat.tool_calls[0] //original api
-          : tool_call_chat; //responses api
+          tool_call = tool_call_chat.tool_calls
+            ? tool_call_chat.tool_calls[0] //original api
+            : tool_call_chat; //responses api
+        }
         const content =
           result && typeof result !== "string"
             ? JSON.stringify(result)
@@ -229,7 +231,8 @@ const toolResponse = async (
               }
             : {
                 role: "tool",
-                tool_call_id: tool_call.toolCallId || tool_call.id,
+                tool_call_id:
+                  opts.tool_call_id || tool_call.toolCallId || tool_call.id,
                 content,
               },
         );
@@ -237,27 +240,29 @@ const toolResponse = async (
       break;
     case "AI SDK":
       {
-        let tool_call;
-        if (opts.tool_call) tool_call = opts.tool_call;
-        else
-          tool_call = last(
-            chat.filter(
-              (c) =>
-                c.role === "assistant" &&
-                Array.isArray(c.content) &&
-                c.content.some((cc) => cc.type === "tool-call"),
-            ),
-          );
+        let tool_call, tc;
+        if (!(opts.tool_call_id && opts.tool_name)) {
+          if (opts.tool_call) tool_call = opts.tool_call;
+          else
+            tool_call = last(
+              chat.filter(
+                (c) =>
+                  c.role === "assistant" &&
+                  Array.isArray(c.content) &&
+                  c.content.some((cc) => cc.type === "tool-call"),
+              ),
+            );
 
-        const tc = tool_call.content[0];
+          tc = tool_call.content[0];
+        }
 
         chat.push({
           role: "tool",
           content: [
             {
               type: "tool-result",
-              toolCallId: tc.toolCallId,
-              toolName: tc.toolName,
+              toolCallId: opts.tool_call_id || tc.toolCallId,
+              toolName: opts.tool_name || tc.toolName,
               output:
                 !result || typeof result === "string"
                   ? {
