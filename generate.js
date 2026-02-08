@@ -206,7 +206,7 @@ const toolResponse = async (
     case "OpenAI":
       {
         let tool_call_chat, tool_call;
-        if (!(opts.tool_call_id && opts.tool_name)) {
+        if (!((opts.tool_call_id && opts.tool_name) || opts.tool_call)) {
           if (opts.tool_call) tool_call_chat = opts.tool_call;
           else
             tool_call_chat = last(
@@ -221,27 +221,32 @@ const toolResponse = async (
           result && typeof result !== "string"
             ? JSON.stringify(result)
             : result || "Action run";
+        const new_chat_item = responses_api
+          ? {
+              type: "function_call_output",
+              call_id:
+                opts.tool_call?.tool_call_id ||
+                opts.tool_call_id ||
+                tool_call.call_id,
+              output: content,
+            }
+          : {
+              role: "tool",
+              tool_call_id:
+                opts.tool_call?.tool_call_id ||
+                opts.tool_call_id ||
+                tool_call.toolCallId ||
+                tool_call.id,
+              content,
+            };
 
-        chat.push(
-          responses_api
-            ? {
-                type: "function_call_output",
-                call_id: tool_call.call_id,
-                output: content,
-              }
-            : {
-                role: "tool",
-                tool_call_id:
-                  opts.tool_call_id || tool_call.toolCallId || tool_call.id,
-                content,
-              },
-        );
+        chat.push(new_chat_item);
       }
       break;
     case "AI SDK":
       {
         let tool_call, tc;
-        if (!(opts.tool_call_id && opts.tool_name)) {
+        if (!((opts.tool_call_id && opts.tool_name) || opts.tool_call)) {
           if (opts.tool_call) tool_call = opts.tool_call;
           else
             tool_call = last(
@@ -261,8 +266,12 @@ const toolResponse = async (
           content: [
             {
               type: "tool-result",
-              toolCallId: opts.tool_call_id || tc.toolCallId,
-              toolName: opts.tool_name || tc.toolName,
+              toolCallId:
+                opts.tool_call?.tool_call_id ||
+                opts.tool_call_id ||
+                tc.toolCallId,
+              toolName:
+                opts.tool_call?.tool_name || opts.tool_name || tc.toolName,
               output:
                 !result || typeof result === "string"
                   ? {
@@ -487,6 +496,14 @@ const getCompletionAISDK = async (
       content: await results.text,
       messages: (await results.response).messages,
       ai_sdk: true,
+      hasToolCalls: allToolCalls.length,
+      getToolCalls() {
+        return allToolCalls.map((tc) => ({
+          tool_name: tc.toolName,
+          input: tc.input,
+          tool_call_id: tc.toolCallId,
+        }));
+      },
     };
   } else return results.text;
 };
@@ -750,6 +767,14 @@ const getCompletionOpenAICompatible = async (
       .filter((o) => o.type === "message")
       .map((o) => o.content.map((c) => c.text).join(""))
       .join("");
+    const tool_calls = emptyToUndefined(
+      results.output
+        .filter((o) => o.type === "function_call")
+        .map((o) => ({
+          function: { name: o.name, arguments: o.arguments },
+          ...o,
+        })),
+    );
     return results.output.some(
       (o) =>
         o.type === "function_call" ||
@@ -758,14 +783,7 @@ const getCompletionOpenAICompatible = async (
         o.type === "mcp_call",
     )
       ? {
-          tool_calls: emptyToUndefined(
-            results.output
-              .filter((o) => o.type === "function_call")
-              .map((o) => ({
-                function: { name: o.name, arguments: o.arguments },
-                ...o,
-              })),
-          ),
+          tool_calls,
           image_calls: emptyToUndefined(
             results.output.filter((o) => o.type === "image_generation_call"),
           ),
@@ -775,6 +793,14 @@ const getCompletionOpenAICompatible = async (
             ),
           ),
           content: textOutput || null,
+          hasToolCalls: tool_calls?.length,
+          getToolCalls() {
+            return tool_calls.map((tc) => ({
+              tool_name: tc.function.name,
+              input: JSON.parse(tc.function.arguments),
+              tool_call_id: tc.call_id,
+            }));
+          },
         }
       : textOutput || null;
   } else
@@ -782,6 +808,14 @@ const getCompletionOpenAICompatible = async (
       ? {
           tool_calls: results?.choices?.[0]?.message?.tool_calls,
           content: results?.choices?.[0]?.message?.content || null,
+          hasToolCalls: results?.choices?.[0]?.message?.tool_calls.length,
+          getToolCalls() {
+            return results?.choices?.[0]?.message?.tool_calls.map((tc) => ({
+              tool_name: tc.function.name,
+              input: JSON.parse(tc.function.arguments),
+              tool_call_id: tc.id,
+            }));
+          },
         }
       : results?.choices?.[0]?.message?.content || null;
 };
