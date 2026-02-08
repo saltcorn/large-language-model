@@ -422,7 +422,7 @@ const functions = (config) => {
         { name: "options", type: "JSON", tstype: "any", required: true },
       ],
     },
-    llm_tool_response: {
+    llm_add_tool_response: {
       run: async (prompt, opts) => {
         const result = await toolResponse(config, { prompt, ...opts });
         return result;

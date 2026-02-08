@@ -142,7 +142,7 @@ for (const nameconfig of require("./configs")) {
       const cities = tc.input.cities;
       expect(cities.length).toBe(27);
 
-      await getState().functions.llm_tool_response.run("List received", {
+      await getState().functions.llm_add_tool_response.run("List received", {
         chat,
         tool_call: tc,
       });
