@@ -230,8 +230,6 @@ const toolResponse = async (
             : {
                 role: "tool",
                 tool_call_id: tool_call.toolCallId || tool_call.id,
-                call_id: tool_call.call_id,
-                name: tool_call.name || tool_call.function.name,
                 content,
               },
         );
