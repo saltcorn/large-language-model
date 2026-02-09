@@ -133,7 +133,7 @@ for (const nameconfig of require("./configs")) {
       const chat = [];
       const answer = await getState().functions.llm_generate.run(
         "Generate a list of EU capitals in a structured format using the provided tool",
-        { chat, appendToChat: true, ...cities_tool },
+        { chat, appendToChat: true, ...cities_tool, streamCallback() {} },
       );
       expect(typeof answer).toBe("object");
 
