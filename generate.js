@@ -472,10 +472,15 @@ const getCompletionAISDK = async (
   let results;
   if (rest.streamCallback) {
     delete body.streamCallback;
-    results = await streamText(body);
-    for await (const textPart of results.textStream) {
+    const results1 = await streamText(body);
+    for await (const textPart of results1.textStream) {
       rest.streamCallback(textPart);
     }
+    results = {
+      response: await results1.response,
+      text: await results1.text,
+      steps: await results1.steps,
+    };
   } else results = await generateText(body);
 
   if (appendToChat && chat) {
