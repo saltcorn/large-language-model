@@ -11,7 +11,7 @@ const {
   getEmbedding,
   getImageGeneration,
   getAudioTranscription,
-  toolResponse
+  toolResponse,
 } = require("./generate");
 const { OPENAI_MODELS } = require("./constants.js");
 const { eval_expression } = require("@saltcorn/data/models/expression");
@@ -422,14 +422,27 @@ const functions = (config) => {
         { name: "options", type: "JSON", tstype: "any", required: true },
       ],
     },
-    llm_add_tool_response: {
-      run: async (prompt, opts) => {
-        const result = await toolResponse(config, { prompt, ...opts });
-        return result;
+    llm_add_message: {
+      run: async (what, prompt, opts) => {
+        switch (what) {
+          case "tool_response":
+            const result = await toolResponse(config, { prompt, ...opts });
+            return result;
+            break;
+
+          default:
+            break;
+        }
       },
       isAsync: true,
-      description: "Insert the response to a tool call into a chat",
+      description: "Insert a tool response or an image in a chat",
       arguments: [
+        {
+          name: "what",
+          type: "String",
+          tstype: '"tool_response"|"image"',
+          required: true,
+        },
         { name: "prompt", type: "String", required: true },
         { name: "options", type: "JSON", tstype: "any" },
       ],

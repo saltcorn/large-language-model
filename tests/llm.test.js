@@ -133,7 +133,12 @@ for (const nameconfig of require("./configs")) {
       const chat = [];
       const answer = await getState().functions.llm_generate.run(
         "Generate a list of EU capitals in a structured format using the provided tool",
-        { chat, appendToChat: true, ...cities_tool, streamCallback() {} },
+        {
+          chat,
+          appendToChat: true,
+          ...cities_tool,
+          //streamCallback() {}
+        },
       );
       expect(typeof answer).toBe("object");
 
@@ -142,10 +147,14 @@ for (const nameconfig of require("./configs")) {
       const cities = tc.input.cities;
       expect(cities.length).toBe(27);
 
-      await getState().functions.llm_add_tool_response.run("List received", {
-        chat,
-        tool_call: tc,
-      });
+      await getState().functions.llm_add_message.run(
+        "tool_response",
+        "List received",
+        {
+          chat,
+          tool_call: tc,
+        },
+      );
 
       const answer1 = await getState().functions.llm_generate.run(
         "Make the same list in a structured format using the provided tool but for the original 12 member countries of the EU",
