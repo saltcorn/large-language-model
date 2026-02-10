@@ -291,6 +291,58 @@ const toolResponse = async (
   }
 };
 
+const addImageMesssage = async (
+  { backend, apiKey, api_key, provider, ai_sdk_provider, responses_api },
+  opts,
+) => {
+  let chat = opts.chat;
+  let result = opts.prompt;
+  //console.log("chat", JSON.stringify(chat, null, 2));
+  let imageurl = opts.prompt;
+  switch (opts.backend || backend) {
+    case "OpenAI":
+      {
+        const new_chat_item = responses_api
+          ? {
+              role: "user",
+              content: [
+                {
+                  type: "input_image",
+                  image_url: imageurl,
+                },
+              ],
+            }
+          : {
+              role: "user",
+              content: [
+                {
+                  type: "image_url",
+                  image_url: {
+                    url: imageurl,
+                  },
+                },
+              ],
+            };
+
+        chat.push(new_chat_item);
+      }
+      break;
+    case "AI SDK":
+      chat.push({
+        role: "user",
+        content: [
+          {
+            type: "image",
+            image: imageurl,
+          },
+        ],
+      });
+
+      break;
+    default:
+  }
+};
+
 const getCompletion = async (config, opts) => {
   switch (config.backend) {
     case "AI SDK":
@@ -1110,4 +1162,5 @@ module.exports = {
   getImageGeneration,
   getAudioTranscription,
   toolResponse,
+  addImageMesssage,
 };

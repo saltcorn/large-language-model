@@ -12,6 +12,7 @@ const {
   getImageGeneration,
   getAudioTranscription,
   toolResponse,
+  addImageMesssage,
 } = require("./generate");
 const { OPENAI_MODELS } = require("./constants.js");
 const { eval_expression } = require("@saltcorn/data/models/expression");
@@ -426,10 +427,9 @@ const functions = (config) => {
       run: async (what, prompt, opts) => {
         switch (what) {
           case "tool_response":
-            const result = await toolResponse(config, { prompt, ...opts });
-            return result;
-            break;
-
+            return await toolResponse(config, { prompt, ...opts });
+          case "image":
+            return await addImageMesssage(config, { prompt, ...opts });
           default:
             break;
         }
