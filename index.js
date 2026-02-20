@@ -545,6 +545,7 @@ module.exports = {
   functions,
   modelpatterns: require("./model.js"),
   routes,
+  ready_for_mobile: false,
   actions: (config) => ({
     llm_function_call: require("./function-insert-action.js")(config),
     llm_generate: {
