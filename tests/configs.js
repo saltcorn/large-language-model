@@ -36,7 +36,6 @@ module.exports = [
     model: "claude-sonnet-4-6",
     api_key: process.env.ANTHROPIC_API_KEY,
     backend: "AI SDK",
-    embed_model: "voyage-3-lite",
     image_model: "gpt-image-1",
     temperature: 0.7,
     ai_sdk_provider: "Anthropic",

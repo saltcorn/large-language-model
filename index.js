@@ -126,7 +126,7 @@ ${domReady(`
                 label: "Embedding model", //gpt-3.5-turbo
                 type: "String",
                 required: true,
-                showIf: { backend: "AI SDK" },
+                showIf: { backend: "AI SDK", ai_sdk_provider: ["OpenAI"] },
                 attributes: {
                   calcOptions: [
                     "ai_sdk_provider",
@@ -135,14 +135,6 @@ ${domReady(`
                         "text-embedding-3-small",
                         "text-embedding-3-large",
                         "text-embedding-ada-002",
-                      ],
-                      Anthropic: [
-                        "voyage-3-large",
-                        "voyage-3",
-                        "voyage-3-lite",
-                        "voyage-code-3",
-                        "voyage-finance-2",
-                        "voyage-law-2",
                       ],
                     },
                   ],

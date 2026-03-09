@@ -423,17 +423,20 @@ const getCompletion = async (config, opts) => {
   }
 };
 
-const getAiSdkModel = ({
-  provider,
-  api_key,
-  model_name,
-  anthropic_api_key,
-}) => {
+const getAiSdkModel = (
+  { provider, api_key, model_name, anthropic_api_key },
+  isEmbedding,
+) => {
   switch (provider) {
     case "OpenAI":
       const openai = createOpenAI({ apiKey: api_key });
-      return openai(model_name);
+      return isEmbedding
+        ? openai.textEmbeddingModel(model_name)
+        : openai(model_name);
+
     case "Anthropic":
+      if (isEmbedding)
+        throw new Error("Anthropic does not provide embedding models");
       const anthropic = createAnthropic({
         apiKey: anthropic_api_key,
       });
@@ -951,12 +954,15 @@ const getEmbeddingAISDK = async (config, { prompt, model, debugResult }) => {
   const { provider, apiKey, embed_model } = config;
   let providerOptions = {};
   const model_name = model || embed_model || "text-embedding-3-small";
-  let model_obj = getAiSdkModel({
-    ...config,
-    model_name,
-    api_key: apiKey,
-    provider,
-  });
+  let model_obj = getAiSdkModel(
+    {
+      ...config,
+      model_name,
+      api_key: apiKey,
+      provider,
+    },
+    true,
+  );
   const body = {
     model: model_obj,
     providerOptions,
