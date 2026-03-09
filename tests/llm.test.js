@@ -165,6 +165,14 @@ for (const nameconfig of require("./configs")) {
 
       expect(cities1.length).toBe(12);
     });
+    it("gets embedding", async () => {
+      const v = await getState().functions.llm_embedding.run(
+        "The quick brown fox jumps over the lazy dog",
+      );
+      expect(Array.isArray(v)).toBe(true);
+      expect(v.length).toBeGreaterThan(50);
+      expect(typeof v[0]).toBe("number");
+    });
   });
 }
 
