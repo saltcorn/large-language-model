@@ -82,7 +82,7 @@ ${domReady(`
                 required: true,
                 showIf: { backend: "AI SDK" },
                 attributes: {
-                  options: ["OpenAI"],
+                  options: ["OpenAI", "Anthropic"],
                 },
               },
               {
@@ -94,13 +94,31 @@ ${domReady(`
                 showIf: { backend: "AI SDK", ai_sdk_provider: "OpenAI" },
               },
               {
+                name: "anthropic_api_key",
+                label: "API key",
+                type: "String",
+                required: true,
+                fieldview: "password",
+                showIf: { backend: "AI SDK", ai_sdk_provider: "Anthropic" },
+              },
+              {
                 name: "model",
                 label: "Model", //gpt-3.5-turbo
                 type: "String",
                 required: true,
                 showIf: { backend: "AI SDK" },
                 attributes: {
-                  calcOptions: ["ai_sdk_provider", { OpenAI: OPENAI_MODELS }],
+                  calcOptions: [
+                    "ai_sdk_provider",
+                    {
+                      OpenAI: OPENAI_MODELS,
+                      Anthropic: [
+                        "claude-opus-4-6",
+                        "claude-sonnet-4-6",
+                        "claude-haiku-4-5",
+                      ],
+                    },
+                  ],
                 },
               },
               {
@@ -117,6 +135,14 @@ ${domReady(`
                         "text-embedding-3-small",
                         "text-embedding-3-large",
                         "text-embedding-ada-002",
+                      ],
+                      Anthropic: [
+                        "voyage-3-large",
+                        "voyage-3",
+                        "voyage-3-lite",
+                        "voyage-code-3",
+                        "voyage-finance-2",
+                        "voyage-law-2",
                       ],
                     },
                   ],
