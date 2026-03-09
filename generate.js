@@ -949,19 +949,14 @@ const getEmbeddingOpenAICompatible = async (
 
 const getEmbeddingAISDK = async (config, { prompt, model, debugResult }) => {
   const { provider, apiKey, embed_model } = config;
-  let model_obj,
-    providerOptions = {};
-  const model_name = model || embed_model;
-
-  switch (provider) {
-    case "OpenAI":
-      const openai = createOpenAI({ apiKey: apiKey });
-      model_obj = openai.textEmbeddingModel(
-        model_name || "text-embedding-3-small",
-      );
-      //providerOptions.openai = {};
-      break;
-  }
+  let providerOptions = {};
+  const model_name = model || embed_model || "text-embedding-3-small";
+  let model_obj = getAiSdkModel({
+    ...config,
+    model_name,
+    api_key: apiKey,
+    provider,
+  });
   const body = {
     model: model_obj,
     providerOptions,
