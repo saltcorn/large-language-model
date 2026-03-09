@@ -23,8 +23,10 @@ const {
   experimental_transcribe,
 } = require("ai");
 const { createOpenAI } = require("@ai-sdk/openai");
+const { createAnthropic } = require("@ai-sdk/anthropic");
 const OpenAI = require("openai");
 const { ElevenLabsClient } = require("@elevenlabs/elevenlabs-js");
+const { NO_TEMP_MODELS } = require("./constants");
 
 let ollamaMod;
 if (features.esm_plugins) ollamaMod = require("ollama");
@@ -348,6 +350,7 @@ const getCompletion = async (config, opts) => {
     case "AI SDK":
       return await getCompletionAISDK(
         {
+          ...config,
           provider: config.ai_sdk_provider,
           apiKey: config.api_key,
           model: opts?.model || config.model,
@@ -420,18 +423,28 @@ const getCompletion = async (config, opts) => {
   }
 };
 
-const getAiSdkModel = ({ provider, api_key, model_name }) => {
+const getAiSdkModel = ({
+  provider,
+  api_key,
+  model_name,
+  anthropic_api_key,
+}) => {
   switch (provider) {
     case "OpenAI":
       const openai = createOpenAI({ apiKey: api_key });
       return openai(model_name);
+    case "Anthropic":
+      const anthropic = createAnthropic({
+        apiKey: anthropic_api_key,
+      });
+      return anthropic(model_name);
     default:
       throw new Error("Provider not found: " + provider);
   }
 };
 
 const getCompletionAISDK = async (
-  { apiKey, model, provider, temperature },
+  { apiKey, model, provider, temperature, anthropic_api_key },
   {
     systemPrompt,
     prompt,
@@ -449,6 +462,7 @@ const getCompletionAISDK = async (
     model_name: use_model_name,
     api_key: api_key || apiKey,
     provider,
+    anthropic_api_key,
   });
   const modifyChat = (chat) => {
     const f = (c) => {
@@ -481,27 +495,15 @@ const getCompletionAISDK = async (
   if (appendToChat && chat && prompt) {
     chat.push({ role: "user", content: prompt });
   }
-  if (rest.temperature || temperature) {
+  if (NO_TEMP_MODELS.includes(use_model_name)) {
+    delete body.temperature;
+  } else if (rest.temperature || temperature) {
     const str_or_num = rest.temperature || temperature;
     body.temperature = +str_or_num;
   } else if (rest.temperature === null) {
     delete body.temperature;
   } else if (typeof temperature === "undefined") {
-    if (
-      ![
-        "o1",
-        "o3",
-        "o3-mini",
-        "o4-mini",
-        "gpt-5",
-        "gpt-5-nano",
-        "gpt-5-mini",
-        "gpt-5.1",
-        "gpt-5.1-codex",
-        "gpt-5.2",
-      ].includes(use_model_name)
-    )
-      body.temperature = 0.7;
+    if (!NO_TEMP_MODELS.includes(use_model_name)) body.temperature = 0.7;
   }
   if (body.tools) {
     const prevTools = [...body.tools];
@@ -598,18 +600,7 @@ const getCompletionOpenAICompatible = async (
   } else if (rest.temperature === null) {
     delete body.temperature;
   } else if (typeof temperature === "undefined") {
-    if (
-      ![
-        "o1",
-        "o3",
-        "o3-mini",
-        "o4-mini",
-        "gpt-5",
-        "gpt-5-nano",
-        "gpt-5-mini",
-      ].includes(use_model)
-    )
-      body.temperature = 0.7;
+    if (!NO_TEMP_MODELS.includes(use_model)) body.temperature = 0.7;
   }
   if (rest.streamCallback && global.fetch) {
     body.stream = true;

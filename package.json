@@ -13,6 +13,7 @@
     "googleapis": "^144.0.0",
     "ai": "5.0.44",
     "@ai-sdk/openai": "2.0.30",
+    "@ai-sdk/anthropic": "2.0.70",
     "openai": "6.16.0",
     "@elevenlabs/elevenlabs-js": "2.31.0"
   },
