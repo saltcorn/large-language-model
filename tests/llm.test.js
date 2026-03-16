@@ -29,7 +29,6 @@ for (const nameconfig of require("./configs")) {
         config,
       );
     });
-
     it("generates text", async () => {
       const answer = await getState().functions.llm_generate.run(
         "What is the Capital of France?",
@@ -165,6 +164,28 @@ for (const nameconfig of require("./configs")) {
 
       expect(cities1.length).toBe(12);
     });
+    it("uses response_format", async () => {
+      const answer = await getState().functions.llm_generate.run(
+        "Generate a list of EU capitals in JSON format",
+        {
+          response_format: {
+            type: "json_schema",
+            json_schema: {
+              name: "cities",
+              schema: cities_tool.tools[0].function.parameters,
+            },
+          },
+        },
+      );
+      expect(typeof answer).toBe("string");
+      console.log("answer", answer);
+
+      const json_answer = JSON.parse(answer);
+
+      expect(json_answer.cities.length).toBe(27);
+      expect(!!json_answer.cities[0].city_name).toBe(true);
+      expect(!!json_answer.cities[0].country_name).toBe(true);
+    });
     if (name !== "AI SDK Anthropic")
       it("gets embedding", async () => {
         const v = await getState().functions.llm_embedding.run(
@@ -186,11 +207,13 @@ const cities_tool = {
         description: "Provide a list of cities by country and city name",
         parameters: {
           type: "object",
+          required: ["cities"],
           properties: {
             cities: {
               type: "array",
               items: {
                 type: "object",
+                additionalProperties: false,
                 properties: {
                   country_name: {
                     type: "string",

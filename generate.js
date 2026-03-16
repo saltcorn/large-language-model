@@ -18,6 +18,7 @@ const {
   streamText,
   tool,
   jsonSchema,
+  Output,
   embed,
   embedMany,
   experimental_transcribe,
@@ -517,6 +518,14 @@ const getCompletionAISDK = async (
         inputSchema: jsonSchema(t.parameters || t.function.parameters),
       });
     });
+  }
+  if (body.response_format?.type === "json_schema" && !body.output) {
+    body.output = Output.object({
+      schema: jsonSchema(
+        lockDownSchema(body.response_format.json_schema.schema),
+      ),
+    });
+    delete body.response_format;
   }
 
   const debugRequest = { ...body, model: use_model_name };
