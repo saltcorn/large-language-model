@@ -11,9 +11,9 @@
     "@google-cloud/vertexai": "^1.9.3",
     "@google-cloud/aiplatform": "^3.34.0",
     "googleapis": "^144.0.0",
-    "ai": "5.0.44",
-    "@ai-sdk/openai": "2.0.30",
-    "@ai-sdk/anthropic": "2.0.70",
+    "ai": "6.0.116",
+    "@ai-sdk/openai": "3.0.41",
+    "@ai-sdk/anthropic": "3.0.58",
     "openai": "6.16.0",
     "@elevenlabs/elevenlabs-js": "2.31.0"
   },
