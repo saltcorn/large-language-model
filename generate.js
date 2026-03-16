@@ -619,6 +619,17 @@ const getCompletionOpenAICompatible = async (
       if (tool.function.required) tool.required = tool.function.required;
       delete tool.function;
     }
+    if (body.response_format?.type === "json_schema" && !body.text) {
+      body.text = {
+        format: {
+          type: "json_schema",
+          name: body.response_format.json_schema.name,
+          //strict: true,
+          schema: lockDownSchema(body.response_format.json_schema.schema),
+        },
+      };
+      delete body.response_format;
+    }
     let newChat;
     if (!appendToChat) {
       newChat = [];
@@ -1147,6 +1158,99 @@ const getEmbeddingGoogleVertex = async (config, opts, oauth2Client) => {
   });
   return embeddings;
 };
+
+function lockDownSchema(schema) {
+  if (!schema || typeof schema !== "object") return schema;
+
+  // Handle arrays (e.g., allOf, oneOf, anyOf, items as array)
+  if (Array.isArray(schema)) {
+    schema.forEach((item) => lockDownSchema(item));
+    return schema;
+  }
+
+  // If this subschema defines properties, lock it down
+  if (schema.properties) {
+    schema.additionalProperties = false;
+  }
+
+  // Recurse into properties
+  if (schema.properties) {
+    for (const key of Object.keys(schema.properties)) {
+      lockDownSchema(schema.properties[key]);
+    }
+  }
+
+  // Recurse into additionalProperties if it's a schema (not just a boolean)
+  if (
+    schema.additionalProperties &&
+    typeof schema.additionalProperties === "object"
+  ) {
+    lockDownSchema(schema.additionalProperties);
+  }
+
+  // Recurse into patternProperties
+  if (schema.patternProperties) {
+    for (const key of Object.keys(schema.patternProperties)) {
+      lockDownSchema(schema.patternProperties[key]);
+    }
+  }
+
+  // Recurse into composition keywords
+  for (const keyword of ["allOf", "oneOf", "anyOf"]) {
+    if (Array.isArray(schema[keyword])) {
+      schema[keyword].forEach((sub) => lockDownSchema(sub));
+    }
+  }
+
+  // Recurse into not
+  if (schema.not) {
+    lockDownSchema(schema.not);
+  }
+
+  // Recurse into if/then/else
+  for (const keyword of ["if", "then", "else"]) {
+    if (schema[keyword]) {
+      lockDownSchema(schema[keyword]);
+    }
+  }
+
+  // Recurse into items (tuple or single schema)
+  if (schema.items) {
+    if (Array.isArray(schema.items)) {
+      schema.items.forEach((item) => lockDownSchema(item));
+    } else {
+      lockDownSchema(schema.items);
+    }
+  }
+
+  // Recurse into prefixItems (Draft 2020-12)
+  if (Array.isArray(schema.prefixItems)) {
+    schema.prefixItems.forEach((item) => lockDownSchema(item));
+  }
+
+  // Recurse into $defs / definitions
+  for (const defsKey of ["$defs", "definitions"]) {
+    if (schema[defsKey]) {
+      for (const key of Object.keys(schema[defsKey])) {
+        lockDownSchema(schema[defsKey][key]);
+      }
+    }
+  }
+
+  // Recurse into dependentSchemas
+  if (schema.dependentSchemas) {
+    for (const key of Object.keys(schema.dependentSchemas)) {
+      lockDownSchema(schema.dependentSchemas[key]);
+    }
+  }
+
+  // Recurse into contains
+  if (schema.contains) {
+    lockDownSchema(schema.contains);
+  }
+
+  return schema;
+}
 
 module.exports = {
   getCompletion,
