@@ -178,7 +178,6 @@ for (const nameconfig of require("./configs")) {
         },
       );
       expect(typeof answer).toBe("string");
-      console.log("answer", answer);
 
       const json_answer = JSON.parse(answer);
 

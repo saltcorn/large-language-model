@@ -620,13 +620,17 @@ const getCompletionOpenAICompatible = async (
   }
   if (responses_api) {
     delete body.tool_choice;
-    for (const tool of body.tools || []) {
-      if (tool.type !== "function" || !tool.function) continue;
-      tool.name = tool.function.name;
-      tool.description = tool.function.description;
-      tool.parameters = tool.function.parameters;
-      if (tool.function.required) tool.required = tool.function.required;
-      delete tool.function;
+    if (body.tools) {
+      const newtools = structuredClone(body.tools)
+      for (const tool of newtools) {
+        if (tool.type !== "function" || !tool.function) continue;
+        tool.name = tool.function.name;
+        tool.description = tool.function.description;
+        tool.parameters = tool.function.parameters;
+        if (tool.function.required) tool.required = tool.function.required;
+        delete tool.function;
+      }
+      body.tools = newtools
     }
     if (body.response_format?.type === "json_schema" && !body.text) {
       body.text = {
