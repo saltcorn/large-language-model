@@ -97,7 +97,7 @@ for (const nameconfig of require("./configs")) {
     });
     it("uses tools", async () => {
       const answer = await getState().functions.llm_generate.run(
-        "Generate a list of EU capitals in a structured format using the provided tool",
+        "Generate a list of all the EU capitals in a structured format using the provided tool",
         cities_tool,
       );
       expect(typeof answer).toBe("object");
@@ -131,7 +131,7 @@ for (const nameconfig of require("./configs")) {
     it("tool use sequence", async () => {
       const chat = [];
       const answer = await getState().functions.llm_generate.run(
-        "Generate a list of EU capitals in a structured format using the provided tool",
+        "Generate a list of all the EU capitals in a structured format using the provided tool",
         {
           chat,
           appendToChat: true,
@@ -166,7 +166,7 @@ for (const nameconfig of require("./configs")) {
     });
     it("uses response_format", async () => {
       const answer = await getState().functions.llm_generate.run(
-        "Generate a list of EU capitals in JSON format",
+        "Generate a list of all the EU capitals in JSON format",
         {
           response_format: {
             type: "json_schema",
