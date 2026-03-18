@@ -65,12 +65,12 @@ ${domReady(`
                 required: true,
                 attributes: {
                   options: [
+                    "AI SDK",
                     "OpenAI",
                     "OpenAI-compatible API",
                     "Local Ollama",
                     ...(isRoot ? ["Local llama.cpp"] : []),
                     "Google Vertex AI",
-                    "AI SDK",
                   ],
                   onChange: "backendChange(this)",
                 },
@@ -357,6 +357,11 @@ ${domReady(`
                 label: "Alternative configurations",
                 showIf: { backend: "OpenAI-compatible API" },
               },
+              {
+                input_type: "section_header",
+                label: "Alternative configurations",
+                showIf: { backend: ["OpenAI-compatible API", "AI SDK"] },
+              },
               new FieldRepeat({
                 name: "altconfigs",
                 label: "Alternative configurations",
@@ -382,6 +387,77 @@ ${domReady(`
                     name: "api_key",
                     label: "API key",
                     type: "String",
+                  },
+                ],
+              }),
+              new FieldRepeat({
+                name: "alt_aisdk_configs",
+                label: "Alternative configurations",
+                showIf: { backend: "AI SDK" },
+                fields: [
+                  { name: "name", label: "Configuration name", type: "String" },
+                  {
+                    name: "alt_provider",
+                    label: "Provider", //gpt-3.5-turbo
+                    type: "String",
+                    required: true,
+                    attributes: {
+                      options: ["OpenAI", "Anthropic"],
+                    },
+                  },
+                  {
+                    name: "api_key",
+                    label: "API key",
+                    type: "String",
+                    required: true,
+                    fieldview: "password",
+                    showIf: { alt_provider: "OpenAI" },
+                  },
+                  {
+                    name: "anthropic_api_key",
+                    label: "API key",
+                    type: "String",
+                    required: true,
+                    fieldview: "password",
+                    showIf: { alt_provider: "Anthropic" },
+                  },
+                  {
+                    name: "model",
+                    label: "Model", //gpt-3.5-turbo
+                    type: "String",
+                    required: true,
+                    attributes: {
+                      calcOptions: [
+                        "alt_provider",
+                        {
+                          OpenAI: OPENAI_MODELS,
+                          Anthropic: [
+                            "claude-opus-4-6",
+                            "claude-sonnet-4-6",
+                            "claude-haiku-4-5",
+                          ],
+                        },
+                      ],
+                    },
+                  },
+                  {
+                    name: "embed_model",
+                    label: "Embedding model", //gpt-3.5-turbo
+                    type: "String",
+                    required: true,
+                    showIf: { alt_provider: ["OpenAI"] },
+                    attributes: {
+                      calcOptions: [
+                        "alt_provider",
+                        {
+                          OpenAI: [
+                            "text-embedding-3-small",
+                            "text-embedding-3-large",
+                            "text-embedding-ada-002",
+                          ],
+                        },
+                      ],
+                    },
                   },
                 ],
               }),
@@ -464,6 +540,25 @@ const functions = (config) => {
         { name: "prompt", type: "String", required: true },
         { name: "options", type: "JSON", tstype: "any" },
       ],
+    },
+    llm_get_configuration: {
+      run() {
+        return {
+          ...config,
+          alt_config_names:
+            config?.backend === "AI SDK"
+              ? config?.alt_aisdk_configs
+                  ?.map?.((cfg) => cfg.name)
+                  .filter(Boolean)
+              : config?.backend === "OpenAI-compatible API"
+                ? config?.altconfigs?.map?.((cfg) => cfg.name).filter(Boolean)
+                : [],
+        };
+      },
+      isAsync: false,
+      description: "Get the LLM configuration details",
+      tsreturns: "{alt_config_names: string[], backend: string}",
+      arguments: [],
     },
   };
 };
