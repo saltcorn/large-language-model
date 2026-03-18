@@ -541,6 +541,25 @@ const functions = (config) => {
         { name: "options", type: "JSON", tstype: "any" },
       ],
     },
+    llm_get_configuration: {
+      run() {
+        return {
+          ...config,
+          alt_config_names:
+            config?.backend === "AI SDK"
+              ? config?.alt_aisdk_configs
+                  ?.map?.((cfg) => cfg.name)
+                  .filter(Boolean)
+              : config?.backend === "OpenAI-compatible API"
+                ? config?.altconfigs?.map?.((cfg) => cfg.name).filter(Boolean)
+                : [],
+        };
+      },
+      isAsync: false,
+      description: "Get the LLM configuration details",
+      tsreturns: "{alt_config_names: string[], backend: string}",
+      arguments: [],
+    },
   };
 };
 
