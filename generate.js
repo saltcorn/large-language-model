@@ -621,7 +621,7 @@ const getCompletionOpenAICompatible = async (
   if (responses_api) {
     delete body.tool_choice;
     if (body.tools) {
-      const newtools = structuredClone(body.tools)
+      const newtools = JSON.parse(JSON.stringify(body.tools))
       for (const tool of newtools) {
         if (tool.type !== "function" || !tool.function) continue;
         tool.name = tool.function.name;
