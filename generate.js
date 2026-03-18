@@ -424,13 +424,24 @@ const getCompletion = async (config, opts) => {
   }
 };
 
-const getAiSdkModel = (
-  { provider, api_key, model_name, anthropic_api_key },
-  isEmbedding,
-) => {
-  switch (provider) {
+const getAiSdkModel = ({ config, alt_config, userCfg }, isEmbedding) => {
+  const use_config = alt_config
+    ? config.alt_aisdk_configs?.find?.((acfg) => acfg.name === alt_config) ||
+      config
+    : config;
+  const use_provider = use_config.provider;
+  const model_name = isEmbedding
+    ? userCfg.embed_model ||
+      userCfg.model ||
+      config.embed_model ||
+      "text-embedding-3-small"
+    : userCfg.model || use_config.model;
+
+  switch (use_provider) {
     case "OpenAI":
-      const openai = createOpenAI({ apiKey: api_key });
+      const use_api_key =
+        userCfg.api_key || userCfg.apiKey || use_config.api_key;
+      const openai = createOpenAI({ apiKey: use_api_key });
       return isEmbedding
         ? openai.textEmbeddingModel(model_name)
         : openai(model_name);
@@ -439,7 +450,8 @@ const getAiSdkModel = (
       if (isEmbedding)
         throw new Error("Anthropic does not provide embedding models");
       const anthropic = createAnthropic({
-        apiKey: anthropic_api_key,
+        apiKey:
+          userCfg.api_key || userCfg.apiKey || use_config.anthropic_api_key,
       });
       return anthropic(model_name);
     default:
@@ -448,7 +460,7 @@ const getAiSdkModel = (
 };
 
 const getCompletionAISDK = async (
-  { apiKey, model, provider, temperature, anthropic_api_key },
+  config,
   {
     systemPrompt,
     prompt,
@@ -461,12 +473,12 @@ const getCompletionAISDK = async (
     ...rest
   },
 ) => {
+  const { apiKey, model, provider, temperature } = config;
   const use_model_name = rest.model || model;
   let model_obj = getAiSdkModel({
-    model_name: use_model_name,
-    api_key: api_key || apiKey,
-    provider,
-    anthropic_api_key,
+    config,
+    alt_config: rest.alt_config,
+    userCfg: rest,
   });
   const modifyChat = (chat) => {
     const f = (c) => {
@@ -621,7 +633,7 @@ const getCompletionOpenAICompatible = async (
   if (responses_api) {
     delete body.tool_choice;
     if (body.tools) {
-      const newtools = JSON.parse(JSON.stringify(body.tools))
+      const newtools = JSON.parse(JSON.stringify(body.tools));
       for (const tool of newtools) {
         if (tool.type !== "function" || !tool.function) continue;
         tool.name = tool.function.name;
@@ -630,7 +642,7 @@ const getCompletionOpenAICompatible = async (
         if (tool.function.required) tool.required = tool.function.required;
         delete tool.function;
       }
-      body.tools = newtools
+      body.tools = newtools;
     }
     if (body.response_format?.type === "json_schema" && !body.text) {
       body.text = {
@@ -974,16 +986,16 @@ const getEmbeddingOpenAICompatible = async (
   return results?.data?.[0]?.embedding;
 };
 
-const getEmbeddingAISDK = async (config, { prompt, model, debugResult }) => {
-  const { provider, apiKey, embed_model } = config;
+const getEmbeddingAISDK = async (
+  config,
+  { prompt, model, debugResult, alt_config },
+) => {
   let providerOptions = {};
-  const model_name = model || embed_model || "text-embedding-3-small";
   let model_obj = getAiSdkModel(
     {
-      ...config,
-      model_name,
-      api_key: apiKey,
-      provider,
+      config,
+      userCfg: { model },
+      alt_config,
     },
     true,
   );
