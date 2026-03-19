@@ -429,7 +429,9 @@ const getAiSdkModel = ({ config, alt_config, userCfg }, isEmbedding) => {
     ? config.alt_aisdk_configs?.find?.((acfg) => acfg.name === alt_config) ||
       config
     : config;
-  const use_provider = use_config.provider;
+
+  const use_provider = use_config.alt_provider || use_config.provider;
+
   const model_name = isEmbedding
     ? userCfg.embed_model ||
       userCfg.model ||
@@ -455,7 +457,7 @@ const getAiSdkModel = ({ config, alt_config, userCfg }, isEmbedding) => {
       });
       return anthropic(model_name);
     default:
-      throw new Error("Provider not found: " + provider);
+      throw new Error("Provider not found: " + use_provider);
   }
 };
 
