@@ -98,14 +98,14 @@ for (const nameconfig of require("./configs")) {
     });
     it("uses tools", async () => {
       const answer = await getState().functions.llm_generate.run(
-        "Generate a list of all the EU capitals in a structured format using the provided tool",
+        "Generate a list of all the EU capitals in a structured format using the cities tool",
         cities_tool,
       );
       expect(typeof answer).toBe("object");
-      const cities = answer.ai_sdk
-        ? answer.tool_calls[0].input?.cities
-        : JSON.parse(answer.tool_calls[0].function.arguments).cities;
+      const cities = answer.getToolCalls()[0].input?.cities;
       expect(cities.length).toBe(27);
+      expect(typeof cities[0].country_name).toBe("string");
+      expect(typeof cities[0].city_name).toBe("string");
     });
     it("appends to chat history", async () => {
       const chat = [];
@@ -132,7 +132,7 @@ for (const nameconfig of require("./configs")) {
     it("tool use sequence", async () => {
       const chat = [];
       const answer = await getState().functions.llm_generate.run(
-        "Generate a list of all the EU capitals in a structured format using the provided tool",
+        "Generate a list of all the EU capitals in a structured format using the cities tool",
         {
           chat,
           appendToChat: true,
