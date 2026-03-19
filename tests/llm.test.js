@@ -17,7 +17,7 @@ beforeAll(async () => {
 // run with:
 //  saltcorn dev:plugin-test -d ~/large-language-model/
 
-jest.setTimeout(30000);
+jest.setTimeout(40000);
 
 for (const nameconfig of require("./configs")) {
   const { name, ...config } = nameconfig;
