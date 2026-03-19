@@ -2,7 +2,8 @@ const { getState } = require("@saltcorn/data/db/state");
 const View = require("@saltcorn/data/models/view");
 const Table = require("@saltcorn/data/models/table");
 const Plugin = require("@saltcorn/data/models/plugin");
-
+const fs = require("fs");
+const path = require("path");
 const { mockReqRes } = require("@saltcorn/data/tests/mocks");
 const { afterAll, beforeAll, describe, it, expect } = require("@jest/globals");
 
@@ -184,6 +185,24 @@ for (const nameconfig of require("./configs")) {
       expect(json_answer.cities.length).toBe(27);
       expect(!!json_answer.cities[0].city_name).toBe(true);
       expect(!!json_answer.cities[0].country_name).toBe(true);
+    });
+    it("reads images", async () => {
+      const chat = [];
+      const b64 = fs
+          .readFileSync(path.join(__dirname, "enjoy.png"))
+          .toString("base64"),
+        imageurl = `data:image/png;base64,${b64}`;
+      await getState().functions.llm_add_message.run("image", imageurl, {
+        chat,
+      });
+      const answer = await getState().functions.llm_generate.run(
+        "What is written in this picture?",
+        {
+          chat,
+        },
+      );
+      expect(typeof answer).toBe("string");
+      expect(answer.toLowerCase()).toContain("coffee");
     });
     if (name !== "AI SDK Anthropic")
       it("gets embedding", async () => {

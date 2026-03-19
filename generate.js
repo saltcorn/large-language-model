@@ -331,12 +331,17 @@ const addImageMesssage = async (
       }
       break;
     case "AI SDK":
+      let aisdk_image;
+      if (imageurl.startsWith("data:") && imageurl.includes("base64,")) {
+        const [_pre, b64] = imageurl.split("base64,");
+        aisdk_image = b64;
+      } else aisdk_image = imageurl;
       chat.push({
         role: "user",
         content: [
           {
             type: "image",
-            image: imageurl,
+            image: aisdk_image,
           },
         ],
       });
