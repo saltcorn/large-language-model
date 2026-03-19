@@ -442,7 +442,10 @@ const getAiSdkModel = ({ config, alt_config, userCfg }, isEmbedding) => {
   switch (use_provider) {
     case "OpenAI":
       const use_api_key =
-        userCfg.api_key || userCfg.apiKey || use_config.api_key;
+        userCfg.api_key ||
+        userCfg.apiKey ||
+        use_config.api_key ||
+        use_config.apiKey;
       const openai = createOpenAI({ apiKey: use_api_key });
       return isEmbedding
         ? openai.textEmbeddingModel(model_name)
