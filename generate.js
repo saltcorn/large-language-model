@@ -575,15 +575,18 @@ const getCompletionAISDK = async (
     chat.push(...results.response.messages);
   }
 
-  if (debugResult)
-    console.log("AI SDK response", JSON.stringify(results, null, 2));
-  else getState().log(6, `AI SDK response ${JSON.stringify(results)}`);
   if (debugCollector) {
     debugCollector.response = results;
     debugCollector.response_time_ms = Date.now() - reqTimeStart;
   }
   const allToolCalls = (await results.steps).flatMap((step) => step.toolCalls);
-
+  if (debugResult)
+    console.log("AI SDK response", JSON.stringify(results, null, 2));
+  else
+    getState().log(6, `AI SDK response`, {
+      text: results.text,
+      tool_calls: allToolCalls,
+    });
   if (allToolCalls.length) {
     return {
       tool_calls: allToolCalls,
