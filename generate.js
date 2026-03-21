@@ -816,10 +816,27 @@ const getCompletionOpenAICompatible = async (
       if (streamToolCalls) debugCollector.response = streamToolCalls;
       debugCollector.response_time_ms = Date.now() - reqTimeStart;
     }
+    if (appendToChat && chat && streamToolCalls) {
+      chat.push({
+        role: "assistant",
+        content: streamParts.join("") || null,
+        tool_calls: streamToolCalls.tool_calls,
+      });
+    } else if (appendToChat && chat && streamParts.length > 0) {
+      chat.push({ role: "assistant", content: streamParts.join("") });
+    }
     return streamToolCalls
       ? {
           content: streamParts.join(""),
           tool_calls: streamToolCalls.tool_calls,
+          hasToolCalls: streamToolCalls.tool_calls?.length,
+          getToolCalls() {
+            return streamToolCalls.tool_calls.map((tc) => ({
+              tool_name: tc.function.name,
+              input: tc.function.arguments ? JSON.parse(tc.function.arguments) : {},
+              tool_call_id: tc.id,
+            }));
+          },
         }
       : streamParts.join("");
   }
@@ -873,7 +890,7 @@ const getCompletionOpenAICompatible = async (
           getToolCalls() {
             return tool_calls.map((tc) => ({
               tool_name: tc.function.name,
-              input: JSON.parse(tc.function.arguments),
+              input: tc.function.arguments ? JSON.parse(tc.function.arguments) : {},
               tool_call_id: tc.call_id,
             }));
           },
@@ -888,7 +905,7 @@ const getCompletionOpenAICompatible = async (
           getToolCalls() {
             return results?.choices?.[0]?.message?.tool_calls.map((tc) => ({
               tool_name: tc.function.name,
-              input: JSON.parse(tc.function.arguments),
+              input: tc.function.arguments ? JSON.parse(tc.function.arguments) : {},
               tool_call_id: tc.id,
             }));
           },
