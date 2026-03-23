@@ -553,7 +553,12 @@ const getCompletionAISDK = async (
   const debugRequest = { ...body, model: use_model_name };
   if (debugResult)
     console.log("AI SDK request", JSON.stringify(debugRequest, null, 2));
-  getState().log(6, `AI SDK request ${JSON.stringify(debugRequest)} `);
+  getState().log(
+    6,
+    `AI SDK request`,
+    { tools: Object.keys(debugRequest.tools || {}), model: debugRequest.model },
+    JSON.stringify(debugRequest.messages, null, 2),
+  );
   if (debugCollector) debugCollector.request = debugRequest;
   const reqTimeStart = Date.now();
 
@@ -858,7 +863,9 @@ const getCompletionOpenAICompatible = async (
           getToolCalls() {
             return streamToolCalls.tool_calls.map((tc) => ({
               tool_name: tc.function.name,
-              input: tc.function.arguments ? JSON.parse(tc.function.arguments) : {},
+              input: tc.function.arguments
+                ? JSON.parse(tc.function.arguments)
+                : {},
               tool_call_id: tc.id,
             }));
           },
@@ -915,7 +922,9 @@ const getCompletionOpenAICompatible = async (
           getToolCalls() {
             return tool_calls.map((tc) => ({
               tool_name: tc.function.name,
-              input: tc.function.arguments ? JSON.parse(tc.function.arguments) : {},
+              input: tc.function.arguments
+                ? JSON.parse(tc.function.arguments)
+                : {},
               tool_call_id: tc.call_id,
             }));
           },
@@ -930,7 +939,9 @@ const getCompletionOpenAICompatible = async (
           getToolCalls() {
             return results?.choices?.[0]?.message?.tool_calls.map((tc) => ({
               tool_name: tc.function.name,
-              input: tc.function.arguments ? JSON.parse(tc.function.arguments) : {},
+              input: tc.function.arguments
+                ? JSON.parse(tc.function.arguments)
+                : {},
               tool_call_id: tc.id,
             }));
           },
