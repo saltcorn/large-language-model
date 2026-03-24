@@ -525,6 +525,7 @@ const functions = (config) => {
           case "image":
             return await addImageMesssage(config, { prompt, ...opts });
           default:
+            opts.chat.push({ role: what, content: prompt });
             break;
         }
       },
