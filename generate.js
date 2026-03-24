@@ -212,10 +212,10 @@ const genericResponse = async (
       if (role === "assistant" && typeof prompt === "string")
         opts.chat.push({
           role,
-          content: {
+          content: [{
             type: "text",
             text: prompt,
-          },
+          }],
         });
       break;
     default:
