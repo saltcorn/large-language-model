@@ -198,6 +198,31 @@ const getAudioTranscription = async (
 
 const last = (xs) => xs[xs.length - 1];
 
+const genericResponse = async (
+  { backend, apiKey, api_key, provider, ai_sdk_provider, responses_api },
+  role,
+  prompt,
+  opts,
+) => {
+  let chat = opts.chat;
+  let result = opts.prompt;
+  //console.log("chat", JSON.stringify(chat, null, 2));
+  switch (opts.backend || backend) {
+    case "AI SDK":
+      if (role === "assistant" && typeof prompt === "string")
+        opts.chat.push({
+          role,
+          content: {
+            type: "text",
+            text: prompt,
+          },
+        });
+      break;
+    default:
+      opts.chat.push({ role, content: prompt });
+  }
+};
+
 const toolResponse = async (
   { backend, apiKey, api_key, provider, ai_sdk_provider, responses_api },
   opts,
@@ -1324,5 +1349,6 @@ module.exports = {
   getImageGeneration,
   getAudioTranscription,
   toolResponse,
+  genericResponse,
   addImageMesssage,
 };

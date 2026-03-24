@@ -13,6 +13,7 @@ const {
   getAudioTranscription,
   toolResponse,
   addImageMesssage,
+  genericResponse,
 } = require("./generate");
 const { OPENAI_MODELS } = require("./constants.js");
 const { eval_expression } = require("@saltcorn/data/models/expression");
@@ -525,7 +526,7 @@ const functions = (config) => {
           case "image":
             return await addImageMesssage(config, { prompt, ...opts });
           default:
-            opts.chat.push({ role: what, content: prompt });
+            return genericResponse(config, what, prompt, opts);
             break;
         }
       },
