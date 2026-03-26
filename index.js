@@ -92,6 +92,7 @@ ${domReady(`
                 type: "String",
                 required: true,
                 fieldview: "password",
+                attributes: { autocomplete: "off" },
                 showIf: { backend: "AI SDK", ai_sdk_provider: "OpenAI" },
               },
               {
@@ -100,6 +101,7 @@ ${domReady(`
                 type: "String",
                 required: true,
                 fieldview: "password",
+                attributes: { autocomplete: "off" },
                 showIf: { backend: "AI SDK", ai_sdk_provider: "Anthropic" },
               },
               {
@@ -155,6 +157,7 @@ ${domReady(`
                 type: "String",
                 required: true,
                 fieldview: "password",
+                attributes: { autocomplete: "off" },
                 showIf: { backend: "OpenAI" },
               },
               {
@@ -317,6 +320,8 @@ ${domReady(`
                 name: "api_key",
                 label: "API key",
                 type: "String",
+                fieldview: "password",
+                attributes: { autocomplete: "off" },
                 showIf: { backend: "OpenAI-compatible API" },
               },
               {
@@ -388,6 +393,8 @@ ${domReady(`
                     name: "api_key",
                     label: "API key",
                     type: "String",
+                    fieldview: "password",
+                    attributes: { autocomplete: "off" },
                   },
                 ],
               }),
@@ -412,6 +419,7 @@ ${domReady(`
                     type: "String",
                     required: true,
                     fieldview: "password",
+                    attributes: { autocomplete: "off" },
                     showIf: { alt_provider: "OpenAI" },
                   },
                   {
@@ -420,6 +428,7 @@ ${domReady(`
                     type: "String",
                     required: true,
                     fieldview: "password",
+                    attributes: { autocomplete: "off" },
                     showIf: { alt_provider: "Anthropic" },
                   },
                   {
