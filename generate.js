@@ -593,6 +593,15 @@ const getCompletionAISDK = async (
   let results;
   if (rest.streamCallback) {
     delete body.streamCallback;
+    body.onError = ({ error }) => {
+      console.error("LLM AI SDK stream error", error);
+      const errMsg = error?.message;
+      const showMsg = errMsg.replace?.(
+        "Last error: Overloaded. https://docs.claude.com/en/api/errors",
+        "The Claude API is temporarily overloaded",
+      );
+      rest.streamCallback(showMsg);
+    };
     const results1 = await streamText(body);
     for await (const textPart of results1.textStream) {
       rest.streamCallback(textPart);
