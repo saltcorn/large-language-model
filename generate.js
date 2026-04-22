@@ -591,6 +591,7 @@ const getCompletionAISDK = async (
   const reqTimeStart = Date.now();
 
   let results;
+  let streamError;
   if (rest.streamCallback) {
     delete body.streamCallback;
     body.onError = ({ error }) => {
@@ -600,17 +601,27 @@ const getCompletionAISDK = async (
         "Last error: Overloaded. https://docs.claude.com/en/api/errors",
         "The Claude API is temporarily overloaded",
       );
+      streamError = error;
       rest.streamCallback(showMsg);
     };
     const results1 = await streamText(body);
     for await (const textPart of results1.textStream) {
       rest.streamCallback(textPart);
     }
-    results = {
-      response: await results1.response,
-      text: await results1.text,
-      steps: await results1.steps,
-    };
+    try {
+      results = {
+        response: await results1.response,
+        text: await results1.text,
+        steps: await results1.steps,
+      };
+    } catch (e) {
+      if (
+        e?.message === "No output generated. Check the stream for errors." &&
+        streamError
+      )
+        throw streamError;
+      else throw e;
+    }
   } else results = await generateText(body);
 
   if (appendToChat && chat) {
