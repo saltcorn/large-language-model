@@ -479,7 +479,10 @@ const getAiSdkModel = ({ config, alt_config, userCfg }, isEmbedding) => {
         userCfg.apiKey ||
         use_config.api_key ||
         use_config.apiKey;
-      const openai = createOpenAI({ apiKey: use_api_key });
+      const openai = createOpenAI({
+        apiKey: use_api_key,
+        ...(use_config.server_url ? { baseURL: use_config.server_url } : {}),
+      });
       return isEmbedding
         ? openai.textEmbeddingModel(model_name)
         : openai(model_name);

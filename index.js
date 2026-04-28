@@ -96,6 +96,13 @@ ${domReady(`
                 showIf: { backend: "AI SDK", ai_sdk_provider: "OpenAI" },
               },
               {
+                name: "server_url",
+                label: "Server URL",
+                sublabel: "Optional. Override the OpenAI API base URL (e.g. for a proxy or compatible endpoint)",
+                type: "String",
+                showIf: { backend: "AI SDK", ai_sdk_provider: "OpenAI" },
+              },
+              {
                 name: "anthropic_api_key",
                 label: "API key",
                 type: "String",
@@ -420,6 +427,13 @@ ${domReady(`
                     required: true,
                     fieldview: "password",
                     attributes: { autocomplete: "off" },
+                    showIf: { alt_provider: "OpenAI" },
+                  },
+                  {
+                    name: "server_url",
+                    label: "Server URL",
+                    sublabel: "Optional. Override the OpenAI API base URL",
+                    type: "String",
                     showIf: { alt_provider: "OpenAI" },
                   },
                   {
