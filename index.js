@@ -83,7 +83,7 @@ ${domReady(`
                 required: true,
                 showIf: { backend: "AI SDK" },
                 attributes: {
-                  options: ["OpenAI", "Anthropic"],
+                  options: ["OpenAI", "Anthropic", "OpenAI-compatible"],
                 },
               },
               {
@@ -109,7 +109,10 @@ ${domReady(`
                 label: "Model", //gpt-3.5-turbo
                 type: "String",
                 required: true,
-                showIf: { backend: "AI SDK" },
+                showIf: {
+                  backend: "AI SDK",
+                  ai_sdk_provider: ["OpenAI", "Anthropic"],
+                },
                 attributes: {
                   calcOptions: [
                     "ai_sdk_provider",
@@ -125,8 +128,78 @@ ${domReady(`
                 },
               },
               {
+                name: "api_url",
+                label: "API URL",
+                type: "String",
+                required: true,
+                sublabel:
+                  "Base URL of the OpenAI-compatible server. Example: http://localhost:11434/v1 (Ollama) or http://localhost:1234/v1 (LM Studio)",
+                showIf: {
+                  backend: "AI SDK",
+                  ai_sdk_provider: "OpenAI-compatible",
+                },
+              },
+              {
+                name: "model",
+                label: "Model",
+                type: "String",
+                required: true,
+                sublabel:
+                  "Model name as recognised by your local server, e.g. llama3.2",
+                showIf: {
+                  backend: "AI SDK",
+                  ai_sdk_provider: "OpenAI-compatible",
+                },
+              },
+              {
+                name: "api_key",
+                label: "API key",
+                type: "String",
+                fieldview: "password",
+                attributes: { autocomplete: "off" },
+                sublabel:
+                  "Optional. API key / token if your server requires one",
+                showIf: {
+                  backend: "AI SDK",
+                  ai_sdk_provider: "OpenAI-compatible",
+                },
+              },
+              {
+                name: "bearer_auth",
+                label: "Bearer auth",
+                type: "String",
+                sublabel:
+                  "Optional. Overrides the Authorization header with Bearer <value>. Takes precedence over API key",
+                showIf: {
+                  backend: "AI SDK",
+                  ai_sdk_provider: "OpenAI-compatible",
+                },
+              },
+              {
+                name: "responses_api",
+                label: "Responses API",
+                type: "Bool",
+                sublabel:
+                  "Use the Responses API endpoint instead of chat completions",
+                showIf: {
+                  backend: "AI SDK",
+                  ai_sdk_provider: "OpenAI-compatible",
+                },
+              },
+              {
                 name: "embed_model",
-                label: "Embedding model", //gpt-3.5-turbo
+                label: "Embedding model",
+                type: "String",
+                sublabel:
+                  "Optional. Embedding model name if different from the chat model",
+                showIf: {
+                  backend: "AI SDK",
+                  ai_sdk_provider: "OpenAI-compatible",
+                },
+              },
+              {
+                name: "embed_model",
+                label: "Embedding model",
                 type: "String",
                 required: true,
                 showIf: { backend: "AI SDK", ai_sdk_provider: ["OpenAI"] },
@@ -406,11 +479,11 @@ ${domReady(`
                   { name: "name", label: "Configuration name", type: "String" },
                   {
                     name: "alt_provider",
-                    label: "Provider", //gpt-3.5-turbo
+                    label: "Provider",
                     type: "String",
                     required: true,
                     attributes: {
-                      options: ["OpenAI", "Anthropic"],
+                      options: ["OpenAI", "Anthropic", "OpenAI-compatible"],
                     },
                   },
                   {
@@ -423,6 +496,31 @@ ${domReady(`
                     showIf: { alt_provider: "OpenAI" },
                   },
                   {
+                    name: "api_url",
+                    label: "API URL",
+                    type: "String",
+                    required: true,
+                    sublabel:
+                      "Base URL of the server. Example: http://localhost:11434/v1",
+                    showIf: { alt_provider: "OpenAI-compatible" },
+                  },
+                  {
+                    name: "api_key",
+                    label: "API key",
+                    type: "String",
+                    fieldview: "password",
+                    attributes: { autocomplete: "off" },
+                    sublabel: "Optional",
+                    showIf: { alt_provider: "OpenAI-compatible" },
+                  },
+                  {
+                    name: "bearer_auth",
+                    label: "Bearer auth",
+                    type: "String",
+                    sublabel: "Optional. Overrides Authorization header",
+                    showIf: { alt_provider: "OpenAI-compatible" },
+                  },
+                  {
                     name: "anthropic_api_key",
                     label: "API key",
                     type: "String",
@@ -433,9 +531,10 @@ ${domReady(`
                   },
                   {
                     name: "model",
-                    label: "Model", //gpt-3.5-turbo
+                    label: "Model",
                     type: "String",
                     required: true,
+                    showIf: { alt_provider: ["OpenAI", "Anthropic"] },
                     attributes: {
                       calcOptions: [
                         "alt_provider",
@@ -451,8 +550,16 @@ ${domReady(`
                     },
                   },
                   {
+                    name: "model",
+                    label: "Model",
+                    type: "String",
+                    required: true,
+                    sublabel: "Model name as recognised by your local server",
+                    showIf: { alt_provider: "OpenAI-compatible" },
+                  },
+                  {
                     name: "embed_model",
-                    label: "Embedding model", //gpt-3.5-turbo
+                    label: "Embedding model",
                     type: "String",
                     required: true,
                     showIf: { alt_provider: ["OpenAI"] },
