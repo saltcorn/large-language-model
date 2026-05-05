@@ -579,12 +579,12 @@ const getAiSdkModel = ({ config, alt_config, userCfg }, isEmbedding) => {
 
     case "Google": {
       const google_api_key =
-        use_config.google_api_key ||
-        use_config.api_key ||
-        use_config.apiKey ||
         userCfg.google_api_key ||
         userCfg.api_key ||
-        userCfg.apiKey;
+        userCfg.apiKey ||
+        use_config.google_api_key ||
+        use_config.api_key ||
+        use_config.apiKey;
       const googleProvider = createGoogleGenerativeAI({
         apiKey: google_api_key,
         // baseURL: `https://generativelanguage.googleapis.com/v1beta`,

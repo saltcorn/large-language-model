@@ -649,6 +649,14 @@ ${domReady(`
                     },
                   },
                   {
+                    name: "embed_model",
+                    label: "Embedding model",
+                    type: "String",
+                    showIf: { alt_provider: "Google" },
+                    attributes: { options: GOOGLE_EMBED_MODELS },
+                    default: "gemini-embedding-001",
+                  },
+                  {
                     name: "openrouter_api_key",
                     label: "API key",
                     sublabel: "OpenRouter API key",
@@ -661,10 +669,10 @@ ${domReady(`
                   {
                     name: "model",
                     label: "Model",
-                    sublabel: "e.g. anthropic/claude-sonnet-4-5, openai/gpt-4o",
                     type: "String",
                     required: true,
                     showIf: { alt_provider: "OpenRouter" },
+                    attributes: { options: OPENROUTER_MODELS },
                   },
                   {
                     name: "model",
