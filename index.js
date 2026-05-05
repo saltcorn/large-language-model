@@ -20,6 +20,7 @@ const {
   GOOGLE_MODELS,
   GOOGLE_EMBED_MODELS,
   GOOGLE_IMAGE_MODELS,
+  OPENROUTER_MODELS,
 } = require("./constants.js");
 const { eval_expression } = require("@saltcorn/data/models/expression");
 const { interpolate } = require("@saltcorn/data/utils");
@@ -93,6 +94,7 @@ ${domReady(`
                     "Anthropic",
                     "OpenAI-compatible",
                     "Google",
+                    "OpenRouter",
                   ],
                 },
               },
@@ -165,13 +167,23 @@ ${domReady(`
                 showIf: { backend: "AI SDK", ai_sdk_provider: "Google" },
               },
               {
+                name: "openrouter_api_key",
+                label: "API key",
+                sublabel: "OpenRouter API key from openrouter.ai",
+                type: "String",
+                required: true,
+                fieldview: "password",
+                attributes: { autocomplete: "off" },
+                showIf: { backend: "AI SDK", ai_sdk_provider: "OpenRouter" },
+              },
+              {
                 name: "model",
                 label: "Model",
                 type: "String",
                 required: true,
                 showIf: {
                   backend: "AI SDK",
-                  ai_sdk_provider: ["OpenAI", "Anthropic"],
+                  ai_sdk_provider: ["OpenAI", "Anthropic", "OpenRouter"],
                 },
                 attributes: {
                   calcOptions: [
@@ -183,6 +195,7 @@ ${domReady(`
                         "claude-sonnet-4-6",
                         "claude-haiku-4-5",
                       ],
+                      OpenRouter: OPENROUTER_MODELS,
                     },
                   ],
                 },
@@ -548,6 +561,7 @@ ${domReady(`
                         "Anthropic",
                         "OpenAI-compatible",
                         "Google",
+                        "OpenRouter",
                       ],
                     },
                   },
@@ -633,6 +647,24 @@ ${domReady(`
                     attributes: {
                       options: GOOGLE_MODELS,
                     },
+                  },
+                  {
+                    name: "openrouter_api_key",
+                    label: "API key",
+                    sublabel: "OpenRouter API key",
+                    type: "String",
+                    required: true,
+                    fieldview: "password",
+                    attributes: { autocomplete: "off" },
+                    showIf: { alt_provider: "OpenRouter" },
+                  },
+                  {
+                    name: "model",
+                    label: "Model",
+                    sublabel: "e.g. anthropic/claude-sonnet-4-5, openai/gpt-4o",
+                    type: "String",
+                    required: true,
+                    showIf: { alt_provider: "OpenRouter" },
                   },
                   {
                     name: "model",

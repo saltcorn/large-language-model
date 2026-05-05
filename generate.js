@@ -27,6 +27,7 @@ const {
 const { createOpenAI } = require("@ai-sdk/openai");
 const { createAnthropic } = require("@ai-sdk/anthropic");
 const { createGoogleGenerativeAI } = require("@ai-sdk/google");
+const { createOpenRouter } = require("@openrouter/ai-sdk-provider");
 const OpenAI = require("openai");
 const { ElevenLabsClient } = require("@elevenlabs/elevenlabs-js");
 const { NO_TEMP_MODELS } = require("./constants");
@@ -561,8 +562,29 @@ const getAiSdkModel = ({ config, alt_config, userCfg }, isEmbedding) => {
       });
       return anthropic(model_name);
 
+    case "OpenRouter": {
+      if (isEmbedding)
+        throw new Error("OpenRouter does not support embedding models");
+      const openrouter_api_key =
+        userCfg.api_key ||
+        userCfg.apiKey ||
+        use_config.openrouter_api_key ||
+        use_config.api_key ||
+        use_config.apiKey;
+      const openrouterProvider = createOpenRouter({
+        apiKey: openrouter_api_key,
+      });
+      return openrouterProvider.chat(model_name);
+    }
+
     case "Google": {
-      const google_api_key = use_config.google_api_key;
+      const google_api_key =
+        use_config.google_api_key ||
+        use_config.api_key ||
+        use_config.apiKey ||
+        userCfg.google_api_key ||
+        userCfg.api_key ||
+        userCfg.apiKey;
       const googleProvider = createGoogleGenerativeAI({
         apiKey: google_api_key,
         // baseURL: `https://generativelanguage.googleapis.com/v1beta`,
