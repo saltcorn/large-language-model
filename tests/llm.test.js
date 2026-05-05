@@ -21,7 +21,10 @@ beforeAll(async () => {
 jest.setTimeout(40000);
 
 for (const nameconfig of require("./configs")) {
-  const { name, ...config } = nameconfig;
+  const { name, skipTests = [], ...config } = nameconfig;
+  const skip = new Set(skipTests);
+  const maybeIt = (testName, fn) =>
+    skip.has(testName) ? it.skip(testName, fn) : it(testName, fn);
   describe("llm_generate function with " + name, () => {
     beforeAll(async () => {
       getState().registerPlugin(
@@ -96,7 +99,7 @@ for (const nameconfig of require("./configs")) {
       expect(typeof answer).toBe("string");
       expect(answer).toContain("Seine");
     });
-    it("uses tools", async () => {
+    maybeIt("uses tools", async () => {
       const answer = await getState().functions.llm_generate.run(
         "Generate a list of all the EU capitals in a structured format using the cities tool",
         cities_tool,
@@ -129,7 +132,7 @@ for (const nameconfig of require("./configs")) {
       expect(answer2).toContain("Seine");
       expect(chat.length).toBe(4);
     });
-    it("tool use sequence", async () => {
+    maybeIt("tool use sequence", async () => {
       const chat = [];
       const answer = await getState().functions.llm_generate.run(
         "Generate a list of all the EU capitals in a structured format using the cities tool",
@@ -204,15 +207,14 @@ for (const nameconfig of require("./configs")) {
       expect(typeof answer).toBe("string");
       expect(answer.toLowerCase()).toContain("coffee");
     });
-    if (name !== "AI SDK Anthropic")
-      it("gets embedding", async () => {
-        const v = await getState().functions.llm_embedding.run(
-          "The quick brown fox jumps over the lazy dog",
-        );
-        expect(Array.isArray(v)).toBe(true);
-        expect(v.length).toBeGreaterThan(50);
-        expect(typeof v[0]).toBe("number");
-      });
+    maybeIt("embedding", async () => {
+      const v = await getState().functions.llm_embedding.run(
+        "The quick brown fox jumps over the lazy dog",
+      );
+      expect(Array.isArray(v)).toBe(true);
+      expect(v.length).toBeGreaterThan(50);
+      expect(typeof v[0]).toBe("number");
+    });
   });
 }
 

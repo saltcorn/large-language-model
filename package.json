@@ -4,18 +4,20 @@
   "description": "Large language models and functionality for Saltcorn",
   "main": "index.js",
   "dependencies": {
-    "@saltcorn/data": "^0.9.0",
-    "node-fetch": "2.6.9",
-    "underscore": "1.13.6",
-    "ollama": "0.5.15",
-    "@google-cloud/vertexai": "^1.9.3",
-    "@google-cloud/aiplatform": "^3.34.0",
-    "googleapis": "^144.0.0",
-    "ai": "6.0.116",
-    "@ai-sdk/openai": "3.0.41",
     "@ai-sdk/anthropic": "3.0.58",
+    "@ai-sdk/google": "^3.0.67",
+    "@ai-sdk/openai": "3.0.41",
+    "@elevenlabs/elevenlabs-js": "2.31.0",
+    "@google-cloud/aiplatform": "^3.34.0",
+    "@google-cloud/vertexai": "^1.9.3",
+    "@openrouter/ai-sdk-provider": "^2.9.0",
+    "@saltcorn/data": "^0.9.0",
+    "ai": "6.0.116",
+    "googleapis": "^144.0.0",
+    "node-fetch": "2.6.9",
+    "ollama": "0.5.15",
     "openai": "6.16.0",
-    "@elevenlabs/elevenlabs-js": "2.31.0"
+    "underscore": "1.13.6"
   },
   "devDependencies": {
     "jest": "^29.7.0"

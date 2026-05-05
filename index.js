@@ -15,7 +15,12 @@ const {
   addImageMesssage,
   genericResponse,
 } = require("./generate");
-const { OPENAI_MODELS } = require("./constants.js");
+const {
+  OPENAI_MODELS,
+  GOOGLE_MODELS,
+  GOOGLE_EMBED_MODELS,
+  GOOGLE_IMAGE_MODELS,
+} = require("./constants.js");
 const { eval_expression } = require("@saltcorn/data/models/expression");
 const { interpolate } = require("@saltcorn/data/utils");
 const { getState } = require("@saltcorn/data/db/state");
@@ -78,12 +83,18 @@ ${domReady(`
               },
               {
                 name: "ai_sdk_provider",
-                label: "Provider", //gpt-3.5-turbo
+                label: "Provider",
                 type: "String",
                 required: true,
                 showIf: { backend: "AI SDK" },
                 attributes: {
-                  options: ["OpenAI", "Anthropic", "OpenAI-compatible"],
+                  options: [
+                    "OpenAI",
+                    "Anthropic",
+                    "OpenAI-compatible",
+                    "Google",
+                    "OpenRouter",
+                  ],
                 },
               },
               {
@@ -105,8 +116,68 @@ ${domReady(`
                 showIf: { backend: "AI SDK", ai_sdk_provider: "Anthropic" },
               },
               {
+                name: "google_api_key",
+                label: "API key",
+                sublabel: "Google Generative AI API key from Google AI Studio",
+                type: "String",
+                required: true,
+                fieldview: "password",
+                attributes: { autocomplete: "off" },
+                showIf: { backend: "AI SDK", ai_sdk_provider: "Google" },
+              },
+              {
                 name: "model",
-                label: "Model", //gpt-3.5-turbo
+                label: "Model",
+                type: "String",
+                required: true,
+                showIf: { backend: "AI SDK", ai_sdk_provider: "Google" },
+                attributes: { options: GOOGLE_MODELS },
+              },
+              {
+                name: "embed_model",
+                label: "Embedding model",
+                type: "String",
+                showIf: { backend: "AI SDK", ai_sdk_provider: "Google" },
+                attributes: { options: GOOGLE_EMBED_MODELS },
+                default: "gemini-embedding-001",
+              },
+              {
+                name: "image_model",
+                label: "Image generation model",
+                type: "String",
+                showIf: { backend: "AI SDK", ai_sdk_provider: "Google" },
+                attributes: { options: GOOGLE_IMAGE_MODELS },
+                default: "imagen-4.0-generate-001",
+              },
+              {
+                name: "search_grounding",
+                label: "Google Search grounding",
+                sublabel: "Ground responses with live Google Search results",
+                type: "Bool",
+                showIf: { backend: "AI SDK", ai_sdk_provider: "Google" },
+              },
+              {
+                name: "structuredOutputs",
+                label: "Structured outputs",
+                sublabel:
+                  "Disable if you hit schema errors with complex JSON schemas",
+                type: "Bool",
+                default: true,
+                showIf: { backend: "AI SDK", ai_sdk_provider: "Google" },
+              },
+              {
+                name: "openrouter_api_key",
+                label: "API key",
+                sublabel: "OpenRouter API key from openrouter.ai",
+                type: "String",
+                required: true,
+                fieldview: "password",
+                attributes: { autocomplete: "off" },
+                showIf: { backend: "AI SDK", ai_sdk_provider: "OpenRouter" },
+              },
+              {
+                name: "model",
+                label: "Model",
                 type: "String",
                 required: true,
                 showIf: {
@@ -126,6 +197,14 @@ ${domReady(`
                     },
                   ],
                 },
+              },
+              {
+                name: "model",
+                label: "Model",
+                sublabel: "Model identifier, e.g. anthropic/claude-sonnet-4-5, openai/gpt-4o",
+                type: "String",
+                required: true,
+                showIf: { backend: "AI SDK", ai_sdk_provider: "OpenRouter" },
               },
               {
                 name: "api_url",
@@ -483,7 +562,13 @@ ${domReady(`
                     type: "String",
                     required: true,
                     attributes: {
-                      options: ["OpenAI", "Anthropic", "OpenAI-compatible"],
+                      options: [
+                        "OpenAI",
+                        "Anthropic",
+                        "OpenAI-compatible",
+                        "Google",
+                        "OpenRouter",
+                      ],
                     },
                   },
                   {
@@ -530,6 +615,16 @@ ${domReady(`
                     showIf: { alt_provider: "Anthropic" },
                   },
                   {
+                    name: "google_api_key",
+                    label: "API key",
+                    sublabel: "Google Generative AI API key",
+                    type: "String",
+                    required: true,
+                    fieldview: "password",
+                    attributes: { autocomplete: "off" },
+                    showIf: { alt_provider: "Google" },
+                  },
+                  {
                     name: "model",
                     label: "Model",
                     type: "String",
@@ -548,6 +643,42 @@ ${domReady(`
                         },
                       ],
                     },
+                  },
+                  {
+                    name: "model",
+                    label: "Model",
+                    type: "String",
+                    required: true,
+                    showIf: { alt_provider: "Google" },
+                    attributes: {
+                      options: GOOGLE_MODELS,
+                    },
+                  },
+                  {
+                    name: "embed_model",
+                    label: "Embedding model",
+                    type: "String",
+                    showIf: { alt_provider: "Google" },
+                    attributes: { options: GOOGLE_EMBED_MODELS },
+                    default: "gemini-embedding-001",
+                  },
+                  {
+                    name: "openrouter_api_key",
+                    label: "API key",
+                    sublabel: "OpenRouter API key",
+                    type: "String",
+                    required: true,
+                    fieldview: "password",
+                    attributes: { autocomplete: "off" },
+                    showIf: { alt_provider: "OpenRouter" },
+                  },
+                  {
+                    name: "model",
+                    label: "Model",
+                    sublabel: "Model identifier, e.g. anthropic/claude-sonnet-4-5, openai/gpt-4o",
+                    type: "String",
+                    required: true,
+                    showIf: { alt_provider: "OpenRouter" },
                   },
                   {
                     name: "model",
