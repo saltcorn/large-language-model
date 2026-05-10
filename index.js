@@ -201,7 +201,8 @@ ${domReady(`
               {
                 name: "model",
                 label: "Model",
-                sublabel: "Model identifier, e.g. anthropic/claude-sonnet-4-5, openai/gpt-4o",
+                sublabel:
+                  "Model identifier, e.g. anthropic/claude-sonnet-4-5, openai/gpt-4o",
                 type: "String",
                 required: true,
                 showIf: { backend: "AI SDK", ai_sdk_provider: "OpenRouter" },
@@ -675,7 +676,8 @@ ${domReady(`
                   {
                     name: "model",
                     label: "Model",
-                    sublabel: "Model identifier, e.g. anthropic/claude-sonnet-4-5, openai/gpt-4o",
+                    sublabel:
+                      "Model identifier, e.g. anthropic/claude-sonnet-4-5, openai/gpt-4o",
                     type: "String",
                     required: true,
                     showIf: { alt_provider: "OpenRouter" },
@@ -737,6 +739,7 @@ const functions = (config) => {
       },
       isAsync: true,
       description: "Generate image",
+      hidden: true,
       arguments: [
         { name: "prompt", type: "String", required: true },
         { name: "options", type: "JSON", tstype: "any" },
@@ -779,6 +782,7 @@ const functions = (config) => {
       },
       isAsync: true,
       description: "Insert a tool response or an image in a chat",
+      hidden: true,
       arguments: [
         {
           name: "what",
@@ -807,6 +811,7 @@ const functions = (config) => {
       isAsync: false,
       description: "Get the LLM configuration details",
       tsreturns: "{alt_config_names: string[], backend: string}",
+      hidden: true,
       arguments: [],
     },
   };
