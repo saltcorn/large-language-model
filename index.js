@@ -14,12 +14,16 @@ const {
   toolResponse,
   addImageMesssage,
   genericResponse,
+  getTTSGeneration,
+  getTTSStreamGeneration,
 } = require("./generate");
 const {
   OPENAI_MODELS,
   GOOGLE_MODELS,
   GOOGLE_EMBED_MODELS,
   GOOGLE_IMAGE_MODELS,
+  OPENAI_IMAGE_MODELS,
+  OPENAI_TTS_MODELS,
 } = require("./constants.js");
 const { eval_expression } = require("@saltcorn/data/models/expression");
 const { interpolate } = require("@saltcorn/data/utils");
@@ -105,6 +109,22 @@ ${domReady(`
                 fieldview: "password",
                 attributes: { autocomplete: "off" },
                 showIf: { backend: "AI SDK", ai_sdk_provider: "OpenAI" },
+              },
+              {
+                name: "image_model",
+                label: "Image generation model",
+                type: "String",
+                showIf: { backend: "AI SDK", ai_sdk_provider: "OpenAI" },
+                attributes: { options: OPENAI_IMAGE_MODELS },
+                default: "gpt-image-1",
+              },
+              {
+                name: "tts_model",
+                label: "Text-to-speech model",
+                type: "String",
+                showIf: { backend: "AI SDK", ai_sdk_provider: "OpenAI" },
+                attributes: { options: OPENAI_TTS_MODELS },
+                default: "tts-1",
               },
               {
                 name: "anthropic_api_key",
@@ -365,8 +385,16 @@ ${domReady(`
                 required: true,
                 showIf: { backend: "OpenAI" },
                 attributes: {
-                  options: ["gpt-image-1", "dall-e-2", "dall-e-3"],
+                  options: OPENAI_IMAGE_MODELS,
                 },
+              },
+              {
+                name: "tts_model",
+                label: "Text-to-speech model",
+                type: "String",
+                showIf: { backend: "OpenAI" },
+                attributes: { options: OPENAI_TTS_MODELS },
+                default: "tts-1",
               },
               {
                 name: "client_id",
@@ -742,6 +770,27 @@ const functions = (config) => {
       hidden: true,
       arguments: [
         { name: "prompt", type: "String", required: true },
+        { name: "options", type: "JSON", tstype: "any" },
+      ],
+    },
+    llm_text_to_speech: {
+      run: async (text, opts) => {
+        if (opts?.stream) {
+          return await getTTSStreamGeneration(config, {
+            input: text,
+            ...opts,
+          });
+        }
+        return await getTTSGeneration(config, {
+          input: text,
+          ...opts,
+        });
+      },
+      isAsync: true,
+      description: "Generate speech audio from text",
+      hidden: true,
+      arguments: [
+        { name: "text", type: "String", required: true },
         { name: "options", type: "JSON", tstype: "any" },
       ],
     },

@@ -23,6 +23,7 @@ const {
   embedMany,
   experimental_transcribe,
   experimental_generateImage,
+  experimental_generateSpeech,
 } = require("ai");
 const { createOpenAI } = require("@ai-sdk/openai");
 const { createAnthropic } = require("@ai-sdk/anthropic");
@@ -124,12 +125,72 @@ const getImageGeneration = async (config, opts) => {
     case "AI SDK":
       if (config.ai_sdk_provider === "Google")
         return await getImageGenGoogleAISDK(config, opts);
+      if (config.ai_sdk_provider === "OpenAI")
+        return await getImageGenOpenAIAISDK(config, opts);
       throw new Error(
         "Image generation not implemented for this AI SDK provider",
       );
     default:
       throw new Error("Image generation not implemented for this backend");
   }
+};
+
+// Models that @ai-sdk/openai (3.0.41) does not yet support cleanly —
+// the SDK injects `response_format: 'b64_json'` which gpt-image-2
+// rejects. Fall back to a direct REST call for those.
+const AISDK_IMAGE_FALLBACK_MODELS = new Set(["gpt-image-2"]);
+
+const getImageGenOpenAIAISDK = async (config, opts) => {
+  const api_key = opts?.api_key || config.api_key;
+  const use_model = opts?.model || config.image_model || "gpt-image-1";
+
+  if (AISDK_IMAGE_FALLBACK_MODELS.has(use_model)) {
+    return await getImageGenOpenAICompatible(
+      {
+        imageEndpoint: "https://api.openai.com/v1/images/generations",
+        bearer: api_key,
+        model: use_model,
+      },
+      opts,
+    );
+  }
+
+  const openaiProvider = createOpenAI({ apiKey: api_key });
+  const imageModel = openaiProvider.image(use_model);
+
+  const providerOpts = {};
+  if (opts?.quality && opts.quality !== "auto")
+    providerOpts.quality = opts.quality;
+  if (opts?.output_format) providerOpts.output_format = opts.output_format;
+  if (opts?.background) providerOpts.background = opts.background;
+
+  if (opts?.debugResult)
+    console.log("OpenAI AI-SDK image request", {
+      model: use_model,
+      prompt: opts.prompt,
+      providerOpts,
+    });
+
+  const result = await experimental_generateImage({
+    model: imageModel,
+    prompt: opts.prompt,
+    n: opts?.n || 1,
+    size: opts?.size && opts.size !== "auto" ? opts.size : "1024x1024",
+    ...(Object.keys(providerOpts).length
+      ? { providerOptions: { openai: providerOpts } }
+      : {}),
+  });
+
+  if (opts?.debugResult)
+    console.log("OpenAI AI-SDK image response warnings", result.warnings);
+
+  const img = result.image || result.images?.[0];
+  if (!img) throw new Error("AI SDK image generation returned no image");
+  return {
+    b64_json: img.base64,
+    output_format:
+      img.mediaType?.split("/")?.[1] || opts?.output_format || "png",
+  };
 };
 
 const getImageGenGoogleAISDK = async (config, opts) => {
@@ -423,6 +484,107 @@ const addImageMesssage = async (
       break;
     default:
   }
+};
+
+const getTTSGeneration = async (config, opts) => {
+  switch (config.backend) {
+    case "OpenAI":
+      return await getTTSOpenAI(
+        {
+          api_key: opts?.api_key || config.api_key,
+          model: opts?.model || config.tts_model || "tts-1",
+        },
+        opts,
+      );
+    case "AI SDK":
+      if (config.ai_sdk_provider === "OpenAI")
+        return await getTTSOpenAIAISDK(
+          {
+            api_key: opts?.api_key || config.api_key,
+            model: opts?.model || config.tts_model || "tts-1",
+          },
+          opts,
+        );
+      throw new Error("TTS not implemented for this AI SDK provider");
+    default:
+      throw new Error("TTS not implemented for this backend");
+  }
+};
+
+const getTTSOpenAI = async (
+  { api_key, model },
+  { input, voice, speed, response_format, instructions },
+) => {
+  const client = new OpenAI({ apiKey: api_key });
+  const resp = await client.audio.speech.create({
+    model,
+    voice: voice || "nova",
+    input,
+    response_format: response_format || "mp3",
+    speed: speed || 1.0,
+    ...(model === "gpt-4o-mini-tts" && instructions ? { instructions } : {}),
+  });
+  const buf = Buffer.from(await resp.arrayBuffer());
+  return {
+    buffer: buf,
+    output_format: response_format || "mp3",
+  };
+};
+
+// Streaming variant — always uses native OpenAI SDK so we get the
+// chunked HTTP audio response from /v1/audio/speech and can pipe it
+// straight through to the client (Time-to-First-Sound ~500-800ms).
+const getTTSStreamGeneration = async (config, opts) => {
+  const isOpenAI =
+    config.backend === "OpenAI" ||
+    (config.backend === "AI SDK" && config.ai_sdk_provider === "OpenAI");
+  if (!isOpenAI)
+    throw new Error("TTS streaming only available for OpenAI backends");
+  const api_key = opts?.api_key || config.api_key;
+  const model = opts?.model || config.tts_model || "tts-1";
+  const client = new OpenAI({ apiKey: api_key });
+  const resp = await client.audio.speech.create({
+    model,
+    voice: opts?.voice || "nova",
+    input: opts.input,
+    response_format: opts?.response_format || "mp3",
+    speed: opts?.speed || 1.0,
+    ...(model === "gpt-4o-mini-tts" && opts?.instructions
+      ? { instructions: opts.instructions }
+      : {}),
+  });
+  // resp is a fetch-style Response; resp.body is a Web ReadableStream.
+  return {
+    stream: resp.body,
+    output_format: opts?.response_format || "mp3",
+  };
+};
+
+const getTTSOpenAIAISDK = async (
+  { api_key, model },
+  { input, voice, speed, response_format, instructions },
+) => {
+  const openaiProvider = createOpenAI({ apiKey: api_key });
+  const speechModel = openaiProvider.speech(model);
+  const providerOpts = {};
+  if (speed && speed !== 1.0) providerOpts.speed = speed;
+  if (model === "gpt-4o-mini-tts" && instructions)
+    providerOpts.instructions = instructions;
+  const result = await experimental_generateSpeech({
+    model: speechModel,
+    text: input,
+    voice: voice || "nova",
+    outputFormat: response_format || "mp3",
+    ...(Object.keys(providerOpts).length
+      ? { providerOptions: { openai: providerOpts } }
+      : {}),
+  });
+  const audio = result.audio;
+  const buf = Buffer.from(audio.uint8Array);
+  return {
+    buffer: buf,
+    output_format: audio.format || response_format || "mp3",
+  };
 };
 
 const getCompletion = async (config, opts) => {
@@ -1131,6 +1293,7 @@ const getImageGenOpenAICompatible = async (
     n,
     output_format,
     response_format,
+    background,
   },
 ) => {
   const { imageEndpoint, bearer, apiKey, image_model } = config;
@@ -1147,9 +1310,10 @@ const getImageGenOpenAICompatible = async (
     size: size || "1024x1024",
     n: n || 1,
   };
-  if (quality) body.quality = quality;
+  if (quality && quality !== "auto") body.quality = quality;
   if (output_format) body.output_format = output_format;
   if (response_format) body.response_format = response_format;
+  if (background) body.background = background;
   if (n) body.n = n;
   if (debugResult) console.log("OpenAI image request", imageEndpoint, body);
   if (debugCollector) debugCollector.request = body;
@@ -1555,6 +1719,8 @@ module.exports = {
   getEmbedding,
   getImageGeneration,
   getAudioTranscription,
+  getTTSGeneration,
+  getTTSStreamGeneration,
   toolResponse,
   genericResponse,
   addImageMesssage,

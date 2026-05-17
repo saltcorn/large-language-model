@@ -27,12 +27,30 @@ const GOOGLE_IMAGE_MODELS = [
   "gemini-3.1-flash-image-preview",
 ];
 
+const OPENAI_IMAGE_MODELS = [
+  "gpt-image-1",
+  "gpt-image-2",
+  "dall-e-3",
+  "dall-e-2",
+];
+
+const OPENAI_TTS_MODELS = ["tts-1", "tts-1-hd", "gpt-4o-mini-tts"];
+
+const OPENAI_TTS_VOICES = [
+  "alloy",
+  "ash",
+  "ballad",
+  "coral",
+  "echo",
+  "fable",
+  "nova",
+  "onyx",
+  "sage",
+  "shimmer",
+  "verse",
+];
+
 const OPENAI_MODELS = [
-  "gpt-4o",
-  "gpt-4o-mini",
-  "gpt-4.1",
-  "gpt-4.1-mini",
-  "gpt-4.1-nano",
   "gpt-5",
   "gpt-5-mini",
   "gpt-5-nano",
@@ -40,10 +58,16 @@ const OPENAI_MODELS = [
   "gpt-5.2",
   "gpt-5.2-pro",
   "gpt-5.4",
+  "gpt-5.5",
   "o3",
   "o3-mini",
   "o3-pro",
   "o4-mini",
+  "gpt-4o",
+  "gpt-4o-mini",
+  "gpt-4.1",
+  "gpt-4.1-mini",
+  "gpt-4.1-nano",
   "codex-mini-latest",
   "gpt-5-codex",
   "gpt-5.1-codex",
@@ -63,6 +87,7 @@ const NO_TEMP_MODELS = [
   "gpt-5.1-codex",
   "gpt-5.2",
   "gpt-5.4",
+  "gpt-5.5",
 ];
 
 // https://github.com/ollama/ollama/blob/main/docs/faq.md#where-are-models-stored
@@ -79,4 +104,7 @@ module.exports = {
   GOOGLE_MODELS,
   GOOGLE_EMBED_MODELS,
   GOOGLE_IMAGE_MODELS,
+  OPENAI_IMAGE_MODELS,
+  OPENAI_TTS_MODELS,
+  OPENAI_TTS_VOICES,
 };
