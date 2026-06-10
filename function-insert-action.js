@@ -15,7 +15,7 @@ module.exports = (config) => ({
   disableInList: true,
   disableInBuilder: true,
   configFields: async ({ table }) => {
-    const tables = await Table.find();
+    const tables = await Table.find({}, { cached: true });
     return [
       {
         name: "prompt_template",
@@ -94,7 +94,7 @@ module.exports = (config) => ({
         col.fixed_values,
         row,
         user,
-        "llm_function_call fixed values"
+        "llm_function_call fixed values",
       );
       for (const field of target_table.fields) {
         if (field.primary_key) continue;
@@ -139,7 +139,7 @@ module.exports = (config) => ({
         col.fixed_values || {},
         row,
         user,
-        "llm_function_call fixed values"
+        "llm_function_call fixed values",
       );
 
       if (col.cardinality == "One") {
