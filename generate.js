@@ -28,6 +28,7 @@ const {
 const { createOpenAI } = require("@ai-sdk/openai");
 const { createAnthropic } = require("@ai-sdk/anthropic");
 const { createGoogleGenerativeAI } = require("@ai-sdk/google");
+const { ollama } = require("ai-sdk-ollama");
 const { createOpenRouter } = require("@openrouter/ai-sdk-provider");
 const OpenAI = require("openai");
 const { ElevenLabsClient } = require("@elevenlabs/elevenlabs-js");
@@ -737,6 +738,13 @@ const getAiSdkModel = ({ config, alt_config, userCfg }, isEmbedding) => {
         apiKey: openrouter_api_key,
       });
       return openrouterProvider.chat(model_name);
+    }
+
+    case "Ollama": {
+      if (isEmbedding)
+        throw new Error("Ollama does not support embedding models");
+    
+      return ollama(model_name);
     }
 
     case "Google": {

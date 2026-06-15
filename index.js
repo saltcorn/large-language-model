@@ -98,6 +98,7 @@ ${domReady(`
                     "OpenAI-compatible",
                     "Google",
                     "OpenRouter",
+                    "Ollama",
                   ],
                 },
               },
@@ -210,6 +211,8 @@ ${domReady(`
                     {
                       OpenAI: OPENAI_MODELS,
                       Anthropic: [
+                        "claude-opus-4-8",
+                        "claude-opus-4-7",
                         "claude-opus-4-6",
                         "claude-sonnet-4-6",
                         "claude-haiku-4-5",
@@ -225,7 +228,10 @@ ${domReady(`
                   "Model identifier, e.g. anthropic/claude-sonnet-4-5, openai/gpt-4o",
                 type: "String",
                 required: true,
-                showIf: { backend: "AI SDK", ai_sdk_provider: "OpenRouter" },
+                showIf: {
+                  backend: "AI SDK",
+                  ai_sdk_provider: ["OpenRouter", "Ollama"],
+                },
               },
               {
                 name: "api_url",
@@ -597,6 +603,7 @@ ${domReady(`
                         "OpenAI-compatible",
                         "Google",
                         "OpenRouter",
+                        "Ollama",
                       ],
                     },
                   },
@@ -708,7 +715,7 @@ ${domReady(`
                       "Model identifier, e.g. anthropic/claude-sonnet-4-5, openai/gpt-4o",
                     type: "String",
                     required: true,
-                    showIf: { alt_provider: "OpenRouter" },
+                    showIf: { alt_provider: ["OpenRouter", "Ollama"] },
                   },
                   {
                     name: "model",
