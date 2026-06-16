@@ -815,6 +815,7 @@ const getCompletionAISDK = async (
   const body = {
     ...rest,
     model: model_obj,
+    allowSystemInMessages: true,
     messages: [
       ...((!systemPrompt && newChat?.[0]?.role == "system") || rest.system
         ? []
@@ -881,7 +882,6 @@ const getCompletionAISDK = async (
     });
     delete body.response_format;
   }
-  console.log({ body, systemPrompt });
 
   const debugRequest = { ...body, model: use_model_name };
   if (debugResult)
