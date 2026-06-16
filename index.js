@@ -82,6 +82,11 @@ ${domReady(`
                     ...(isRoot ? ["Local llama.cpp"] : []),
                     "Google Vertex AI",
                   ],
+                  explainers: {
+                    OpenAI: "Deprecated. Use AI SDK instead",
+                    "OpenAI-compatible API": "Deprecated. Use AI SDK instead",
+                    "Local Ollama": "Deprecated. Use AI SDK instead",
+                  },
                   onChange: "backendChange(this)",
                 },
               },
