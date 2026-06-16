@@ -785,6 +785,7 @@ const getCompletionAISDK = async (
     chat = [],
     api_key,
     endpoint,
+    ephemeralCacheControl,
     ...rest
   },
 ) => {
@@ -815,14 +816,14 @@ const getCompletionAISDK = async (
     ...rest,
     model: model_obj,
     messages: [
-      ...(!systemPrompt && newChat?.[0]?.role == "system"
-        ? [
+      ...((!systemPrompt && newChat?.[0]?.role == "system") || rest.system
+        ? []
+        : [
             {
               role: "system",
               content: systemPrompt || "You are a helpful assistant.",
             },
-          ]
-        : []),
+          ]),
       ...newChat,
       ...(prompt ? [{ role: "user", content: prompt }] : []),
     ],
@@ -830,6 +831,15 @@ const getCompletionAISDK = async (
   if (appendToChat && chat && prompt) {
     chat.push({ role: "user", content: prompt });
   }
+  if (
+    ephemeralCacheControl &&
+    config.provider === "Anthropic" &&
+    body.messages.length
+  )
+    body.messages[body.messages.length - 1].providerOptions = {
+      anthropic: { cacheControl: { type: "ephemeral" } },
+    };
+
   if (NO_TEMP_MODELS.includes(use_model_name)) {
     delete body.temperature;
   } else if (rest.temperature || temperature) {
@@ -871,6 +881,7 @@ const getCompletionAISDK = async (
     });
     delete body.response_format;
   }
+  console.log({ body, systemPrompt });
 
   const debugRequest = { ...body, model: use_model_name };
   if (debugResult)
