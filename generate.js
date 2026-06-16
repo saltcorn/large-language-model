@@ -743,7 +743,7 @@ const getAiSdkModel = ({ config, alt_config, userCfg }, isEmbedding) => {
     case "Ollama": {
       if (isEmbedding)
         throw new Error("Ollama does not support embedding models");
-    
+
       return ollama(model_name);
     }
 
@@ -815,10 +815,14 @@ const getCompletionAISDK = async (
     ...rest,
     model: model_obj,
     messages: [
-      {
-        role: "system",
-        content: systemPrompt || "You are a helpful assistant.",
-      },
+      ...(!systemPrompt && newChat?.[0]?.role == "system"
+        ? [
+            {
+              role: "system",
+              content: systemPrompt || "You are a helpful assistant.",
+            },
+          ]
+        : []),
       ...newChat,
       ...(prompt ? [{ role: "user", content: prompt }] : []),
     ],
