@@ -102,6 +102,7 @@ ${domReady(`
                     "Anthropic",
                     "OpenAI-compatible",
                     "Google",
+                    "Z.ai",
                     "OpenRouter",
                     "Ollama",
                   ],
@@ -202,19 +203,37 @@ ${domReady(`
                 showIf: { backend: "AI SDK", ai_sdk_provider: "OpenRouter" },
               },
               {
+                name: "zai_api_key",
+                label: "API key",
+                sublabel: "Z.ai API key",
+                type: "String",
+                required: true,
+                fieldview: "password",
+                attributes: { autocomplete: "off" },
+                showIf: { backend: "AI SDK", ai_sdk_provider: "Z.ai" },
+              },
+              {
+                name: "zai_coding_plan",
+                label: "Coding plan",
+                sublabel: "Is the API key from a coding plan?",
+                type: "Bool",
+                showIf: { backend: "AI SDK", ai_sdk_provider: "Z.ai" },
+              },
+              {
                 name: "model",
                 label: "Model",
                 type: "String",
                 required: true,
                 showIf: {
                   backend: "AI SDK",
-                  ai_sdk_provider: ["OpenAI", "Anthropic"],
+                  ai_sdk_provider: ["OpenAI", "Anthropic", "Z.ai"],
                 },
                 attributes: {
                   calcOptions: [
                     "ai_sdk_provider",
                     {
                       OpenAI: OPENAI_MODELS,
+                      "Z.ai": ["glm-5.2", "glm-5.1"],
                       Anthropic: [
                         "claude-opus-4-8",
                         "claude-opus-4-7",

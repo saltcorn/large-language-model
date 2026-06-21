@@ -716,6 +716,28 @@ const getAiSdkModel = ({ config, alt_config, userCfg }, isEmbedding) => {
           : openaiCompat.chat(model_name);
     }
 
+    case "Z.ai": {
+      const base_url = use_config.zai_coding_plan
+        ? "https://api.z.ai/api/coding/paas/v4/"
+        : "https://api.z.ai/api/paas/v4/";
+      const compat_api_key =
+        userCfg.api_key ||
+        userCfg.apiKey ||
+        use_config.zai_api_key ||
+        use_config.api_key ||
+        use_config.apiKey ||
+        "ollama";
+      const openaiCompat = createOpenAI({
+        apiKey: compat_api_key,
+        baseURL: base_url,
+      });
+      return isEmbedding
+        ? openaiCompat.textEmbeddingModel(model_name)
+        : use_config.responses_api
+          ? openaiCompat.responses(model_name)
+          : openaiCompat.chat(model_name);
+    }
+
     case "Anthropic":
       if (isEmbedding)
         throw new Error("Anthropic does not provide embedding models");
