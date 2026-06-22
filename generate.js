@@ -467,18 +467,27 @@ const addImageMesssage = async (
       }
       break;
     case "AI SDK":
-      let aisdk_image;
+      let aisdk_image, mime;
       if (imageurl.startsWith("data:") && imageurl.includes("base64,")) {
         const [_pre, b64] = imageurl.split("base64,");
+        const [data, mimesemicolon] = _pre.split(":");
+        mime = mimesemicolon.slice(0, -1);
         aisdk_image = b64;
       } else aisdk_image = imageurl;
       chat.push({
         role: "user",
         content: [
-          {
-            type: "image",
-            image: aisdk_image,
-          },
+          !mime || mime.startsWith("image/")
+            ? {
+                type: "image",
+                image: aisdk_image,
+              }
+            : {
+                type: "file",
+                mediaType: mime,
+                data: aisdk_image,
+                //filename: "example.pdf", // optional, not used by all providers
+              },
         ],
       });
 
