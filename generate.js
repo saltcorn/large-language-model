@@ -827,6 +827,12 @@ const getCompletionAISDK = async (
     alt_config: rest.alt_config,
     userCfg: rest,
   });
+  const use_config = rest.alt_config
+    ? config.alt_aisdk_configs?.find?.(
+        (acfg) => acfg.name === rest.alt_config,
+      ) || config
+    : config;
+
   const modifyChat = (chat) => {
     const f = (c) => {
       if (c.type === "image_url")
@@ -863,9 +869,11 @@ const getCompletionAISDK = async (
   if (appendToChat && chat && prompt) {
     chat.push({ role: "user", content: prompt });
   }
+  
   if (
     ephemeralCacheControl &&
-    config.provider === "Anthropic" &&
+    ((rest.alt_config && use_config.alt_provider === "Anthropic") ||
+      config.provider === "Anthropic") &&
     body.messages.length
   )
     body.messages[body.messages.length - 1].providerOptions = {
@@ -885,7 +893,7 @@ const getCompletionAISDK = async (
   if (body.tools) {
     const prevTools = [...body.tools];
     body.tools = {};
-    const isGoogle = config.provider === "Google";
+    const isGoogle = use_config.provider === "Google";
     prevTools.forEach((t) => {
       const params = t.parameters || t.function.parameters;
       body.tools[t.name || t.function.name] = tool({
@@ -897,9 +905,9 @@ const getCompletionAISDK = async (
     });
   }
 
-  if (config.provider === "Google" && config.search_grounding) {
+  if (use_config.provider === "Google" && config.search_grounding) {
     const googleProvider = createGoogleGenerativeAI({
-      apiKey: config.google_api_key,
+      apiKey: use_config.google_api_key,
     });
     if (!body.tools) body.tools = {};
     body.tools.googleSearch = googleProvider.tools.googleSearch();
