@@ -42,6 +42,7 @@ const getEmbedding = async (config, opts) => {
     case "AI SDK":
       return await getEmbeddingAISDK(
         {
+          ...config,
           provider: config.ai_sdk_provider,
           apiKey: config.api_key,
           google_api_key: config.google_api_key,
