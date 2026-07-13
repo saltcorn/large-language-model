@@ -676,6 +676,66 @@ const getCompletion = async (config, opts) => {
   }
 };
 
+const aiSdkModelHasVision = (provider, model_name) => {
+  if (provider === "Z.ai") return false;
+  return true;
+};
+
+const getAiSdkModelWithVision = (cfg, isEmbedding) => {
+  const use_config = cfg.alt_config
+    ? cfg.config.alt_aisdk_configs?.find?.(
+        (acfg) => acfg.name === cfg.alt_config,
+      ) || cfg.config
+    : cfg.config;
+
+  const use_provider = use_config.alt_provider || use_config.provider;
+
+  const model_name = isEmbedding
+    ? cfg.userCfg.embed_model ||
+      cfg.userCfg.model ||
+      cfg.config.embed_model ||
+      "text-embedding-3-small"
+    : cfg.userCfg.model || use_config.model;
+
+  // does chosen model have vision?
+  if (aiSdkModelHasVision(use_provider, model_name))
+    return getAiSdkModel(cfg, isEmbedding);
+
+  // no. order configs and use first with vision
+  const configOpts = [
+    //userCfg
+    /* CANNOT CURRENTLY OVERWRITE PROVIDER
+    
+    ...(cfg.userCfg.model
+      ? [
+          {
+            use_provider: cfg.config.provider,
+            model_name: cfg.userCfg.model,
+            config: cfg.config,
+          },
+        ]
+      : []), */
+    //main
+    {
+      use_provider: cfg.config.provider,
+      model_name: cfg.config.model,
+      config: cfg.config,
+      userCfg: {},
+    },
+    ...cfg.config.alt_aisdk_configs?.map((co) => ({
+      provider_name: co.alt_provider,
+      model_name: co.model,
+      config: co,
+      userCfg: {},
+    })),
+  ];
+  const use_cfg = configOpts.find((co) =>
+    aiSdkModelHasVision(co.use_provider, co.model_name),
+  );
+  if (use_cfg) return getAiSdkModel(use_cfg);
+  throw new Error("No vision capable model present");
+};
+
 const getAiSdkModel = ({ config, alt_config, userCfg }, isEmbedding) => {
   const use_config = alt_config
     ? config.alt_aisdk_configs?.find?.((acfg) => acfg.name === alt_config) ||
@@ -806,6 +866,12 @@ const getAiSdkModel = ({ config, alt_config, userCfg }, isEmbedding) => {
   }
 };
 
+const chatHasImage = (chat) =>
+  chat.type === "image" ||
+  (Array.isArray(chat.content) && chat.content.some((c) => c.type === "image"));
+
+const chatsHaveImage = (chats) => chats.some(chatHasImage);
+
 const getCompletionAISDK = async (
   config,
   {
@@ -823,11 +889,20 @@ const getCompletionAISDK = async (
 ) => {
   const { apiKey, model, provider, temperature } = config;
   const use_model_name = rest.model || model;
-  let model_obj = getAiSdkModel({
-    config,
-    alt_config: rest.alt_config,
-    userCfg: rest,
-  });
+  const hasImage =
+    chatsHaveImage(chat) ||
+    (Array.isArray(prompt) && prompt.some((c) => c.type === "image"));
+  let model_obj = hasImage
+    ? getAiSdkModelWithVision({
+        config,
+        alt_config: rest.alt_config,
+        userCfg: rest,
+      })
+    : getAiSdkModel({
+        config,
+        alt_config: rest.alt_config,
+        userCfg: rest,
+      });
   const use_config = rest.alt_config
     ? config.alt_aisdk_configs?.find?.(
         (acfg) => acfg.name === rest.alt_config,
@@ -870,7 +945,7 @@ const getCompletionAISDK = async (
   if (appendToChat && chat && prompt) {
     chat.push({ role: "user", content: prompt });
   }
-  
+
   if (
     ephemeralCacheControl &&
     ((rest.alt_config && use_config.alt_provider === "Anthropic") ||
