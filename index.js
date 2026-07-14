@@ -282,6 +282,16 @@ ${domReady(`
                 },
               },
               {
+                name: "has_vision",
+                label: "Has vision",
+                type: "Bool",
+                sublabel: "The model is vision-capable",
+                showIf: {
+                  backend: "AI SDK",
+                  ai_sdk_provider: ["OpenRouter", "OpenAI-compatible"],
+                },
+              },
+              {
                 name: "api_key",
                 label: "API key",
                 type: "String",
@@ -787,6 +797,15 @@ ${domReady(`
                           ],
                         },
                       ],
+                    },
+                  },
+                  {
+                    name: "has_vision",
+                    label: "Has vision",
+                    type: "Bool",
+                    sublabel: "The model is vision-capable",
+                    showIf: {
+                      alt_provider: ["OpenRouter", "OpenAI-compatible"],
                     },
                   },
                 ],

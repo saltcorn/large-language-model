@@ -676,7 +676,9 @@ const getCompletion = async (config, opts) => {
   }
 };
 
-const aiSdkModelHasVision = (provider, model_name) => {
+const aiSdkModelHasVision = (provider, model_name, config) => {
+  if (["OpenRouter", "OpenAI-compatible"].includes(provider))
+    return config?.has_vision;
   if (provider === "Z.ai") return false;
   return true;
 };
@@ -698,7 +700,7 @@ const getAiSdkModelWithVision = (cfg, isEmbedding) => {
     : cfg.userCfg.model || use_config.model;
 
   // does chosen model have vision?
-  if (aiSdkModelHasVision(use_provider, model_name))
+  if (aiSdkModelHasVision(use_provider, model_name, use_config))
     return getAiSdkModel(cfg, isEmbedding);
 
   // no. order configs and use first with vision
@@ -730,7 +732,7 @@ const getAiSdkModelWithVision = (cfg, isEmbedding) => {
     })),
   ];
   const use_cfg = configOpts.find((co) =>
-    aiSdkModelHasVision(co.use_provider, co.model_name),
+    aiSdkModelHasVision(co.use_provider, co.model_name, co),
   );
   if (use_cfg) return getAiSdkModel(use_cfg);
   throw new Error("No vision capable model present");
