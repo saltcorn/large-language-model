@@ -244,8 +244,14 @@ ${domReady(`
                     "ai_sdk_provider",
                     {
                       OpenAI: OPENAI_MODELS,
-                      "Z.ai": ["glm-5.2", "glm-5.1"],
+                      "Z.ai": [
+                        "glm-5.3",
+                        "glm-5.3-flash",
+                        "glm-5.2",
+                        "glm-5.1",
+                      ],
                       Anthropic: [
+                        "claude-opus-5.5",
                         "claude-opus-5",
                         "claude-opus-4-8",
                         "claude-opus-4-7",
@@ -313,7 +319,11 @@ ${domReady(`
                 sublabel: "Maximum number of output tokens",
                 showIf: {
                   backend: "AI SDK",
-                  ai_sdk_provider: ["OpenAI-compatible", "Anthropic", "OpenRouter"],
+                  ai_sdk_provider: [
+                    "OpenAI-compatible",
+                    "Anthropic",
+                    "OpenRouter",
+                  ],
                 },
               },
               {
@@ -767,8 +777,14 @@ ${domReady(`
                         "alt_provider",
                         {
                           OpenAI: OPENAI_MODELS,
-                          "Z.ai": ["glm-5.2", "glm-5.1"],
+                          "Z.ai": [
+                            "glm-5.3",
+                            "glm-5.3-flash",
+                            "glm-5.2",
+                            "glm-5.1",
+                          ],
                           Anthropic: [
+                            "claude-opus-5.5",
                             "claude-opus-5",
                             "claude-opus-4-8",
                             "claude-opus-4-7",
@@ -870,7 +886,11 @@ ${domReady(`
                     type: "Integer",
                     sublabel: "Maximum number of output tokens",
                     showIf: {
-                      alt_provider: ["OpenAI-compatible", "Anthropic", "OpenRouter"],
+                      alt_provider: [
+                        "OpenAI-compatible",
+                        "Anthropic",
+                        "OpenRouter",
+                      ],
                     },
                   },
                 ],
